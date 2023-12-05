@@ -914,10 +914,9 @@ if (!class_exists('WorkServiceDatabaseRestAPI')) :
         $params['isRate'] = TRUE;
       }
 
-      // WorkServiceDB::set_messages($params);
+      WorkServiceDB::set_messages($params);
 
-      // $response = new WP_REST_Response('Message Sent');
-      $response = new WP_REST_Response($params);
+      $response = new WP_REST_Response('Message Sent');
       $response->set_status(200);
       return $response;
     }
