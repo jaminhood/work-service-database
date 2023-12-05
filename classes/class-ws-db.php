@@ -13,6 +13,19 @@ if (!class_exists('WorkServiceDB')) :
     }
 
     # ====== Tables ======
+    private static function create_table($table, $stmt)
+    {
+      global $wpdb;
+      global $jal_db_version;
+
+      $table_name = $wpdb->prefix . 'ws_' . $table;
+      $charset_collate = $wpdb->get_charset_collate();
+
+      $sql = "CREATE TABLE IF NOT EXISTS $table_name $stmt $charset_collate;";
+
+      dbDelta($sql);
+      add_option("jal_db_version", $jal_db_version);
+    }
 
     private static function create_categories_table()
     {
@@ -66,7 +79,7 @@ if (!class_exists('WorkServiceDB')) :
         subCategoryID INT NOT NULL,
         serviceName VARCHAR(255) NOT NULL,
         serviceIcon INT NOT NULL,
-        timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       ) $charset_collate;";
 
       dbDelta($sql);
@@ -201,12 +214,12 @@ if (!class_exists('WorkServiceDB')) :
 
       $sql = "CREATE TABLE IF NOT EXISTS $table_name (
         messageID INT PRIMARY KEY AUTO_INCREMENT,
-        senderID INT,
+        sender TEXT,
         chatID INT,
         expertID INT,
         paymentLink TEXT,
         isRate BOOLEAN NOT NULL DEFAULT FALSE,
-        messageLext TEXT,
+        messageText TEXT,
         timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       ) $charset_collate;";
 
@@ -508,6 +521,25 @@ if (!class_exists('WorkServiceDB')) :
       add_option("jal_db_version", $jal_db_version);
     }
 
+    private static function create_user_password_table()
+    {
+      global $wpdb;
+      global $jal_db_version;
+
+      $table_name = $wpdb->prefix . 'ws_user_password';
+      $charset_collate = $wpdb->get_charset_collate();
+
+      $sql = "CREATE TABLE IF NOT EXISTS $table_name (
+        ID INT NOT NULL AUTO_INCREMENT,
+        userID TEXT,
+        userPass TEXT,
+        PRIMARY KEY (ID)
+      ) $charset_collate;";
+
+      dbDelta($sql);
+      add_option("jal_db_version", $jal_db_version);
+    }
+
     public static function create_tables()
     {
       self::create_categories_table();
@@ -534,6 +566,7 @@ if (!class_exists('WorkServiceDB')) :
       self::create_contact_form_submit_table();
       // self::create_expert_orders_table();
       self::create_contact_table();
+      self::create_user_password_table();
     }
 
     public static function delete_tables()
@@ -550,6 +583,7 @@ if (!class_exists('WorkServiceDB')) :
         'ws_profile',
         'ws_chat',
         'ws_user_chat',
+        'ws_messages',
         'ws_bookings',
         'ws_ratings',
         'ws_reviews',
@@ -564,6 +598,7 @@ if (!class_exists('WorkServiceDB')) :
         'ws_contact_form_submit',
         'ws_expert_orders',
         'ws_contact',
+        'ws_user_password',
       );
 
       foreach ($table_extensions as $extension) {
@@ -573,7 +608,6 @@ if (!class_exists('WorkServiceDB')) :
     }
 
     # ====== Accounts ======
-
     private static function create_new_account(array $user_data, string $phone)
     {
       $user_id = wp_insert_user($user_data);
@@ -617,11 +651,18 @@ if (!class_exists('WorkServiceDB')) :
       return $user_id;
     }
 
-    public static function delete_account(int $customer_id)
+    public static function delete_account($userID)
     {
-      delete_user_meta($customer_id, 'phone_number');
-      delete_user_meta($customer_id, 'account_balance');
-      wp_delete_user($customer_id);
+      self::delete_user_password($userID);
+      self::delete_user_profile($userID);
+      self::delete_user_ratings($userID);
+      self::delete_user_requests($userID);
+      self::delete_user_address($userID);
+      self::delete_sender_message($userID);
+
+      delete_user_meta($userID, 'phone_number');
+      delete_user_meta($userID, 'account_balance');
+      wp_delete_user($userID);
     }
 
     public static function delete_accounts(string $role)
@@ -637,71 +678,6 @@ if (!class_exists('WorkServiceDB')) :
         $customer_id = $user->ID;
         self::delete_account($customer_id);
       endforeach;
-    }
-
-    private static function get_customers()
-    {
-      $args = ['role' => 'customers'];
-      $wp_user_query = new WP_User_Query($args);
-      $customers = $wp_user_query->get_results();
-      return $customers;
-    }
-
-    private static function get_single_customer(int $id)
-    {
-      $user = array();
-
-      $customers = self::get_customers();
-      foreach ($customers as $data) :
-        if ($data->ID === $id) :
-          $user = $data;
-        endif;
-      endforeach;
-
-      if (count($user) < 1) :
-        return null;
-      endif;
-
-      return $user;
-    }
-
-    private static function get_experts()
-    {
-      $args = ['role' => 'experts'];
-      $wp_user_query = new WP_User_Query($args);
-      $experts = $wp_user_query->get_results();
-      return $experts;
-    }
-
-    private static function get_single_expert(int $id)
-    {
-      $user = array();
-
-      $experts = self::get_experts();
-      foreach ($experts as $data) :
-        if ($data->ID === $id) :
-          $user = $data;
-        endif;
-      endforeach;
-
-      if (count($user) < 1) :
-        return null;
-      endif;
-
-      return $user;
-    }
-
-    private static function get_user(int $id)
-    {
-      $user = array();
-
-      $user = self::get_single_customer($id);
-
-      if ($user === null) :
-        $user = self::get_single_expert($id);
-      endif;
-
-      return $user;
     }
 
     # ===== Getters
@@ -782,19 +758,66 @@ if (!class_exists('WorkServiceDB')) :
       return self::getter($table, "AS A JOIN $user_table_name AS B ON A.userID = B.ID WHERE A.userID=$userID");
     }
 
-    public static function get_user_address($userID)
+    public static function get_user_address()
     {
-      return self::userGetter('ws_address', $userID);
+      return self::userGetter('ws_address', get_current_user_id());
     }
 
-    public static function get_user_requests($userID)
+    public static function get_user_requests()
     {
-      return self::userGetter('ws_requests', $userID);
+      return self::userGetter('ws_requests', get_current_user_id());
     }
 
-    public static function get_user_profile($userID)
+    public static function get_all_profile()
+    {
+      global $wpdb;
+      $user_table_name = $wpdb->prefix . 'users';
+      return self::getter('ws_profile', "AS A JOIN $user_table_name AS B ON A.userID = B.ID ORDER BY A.timestamp DESC");
+    }
+
+    public static function get_user_profile()
+    {
+      return self::userGetter('ws_profile', get_current_user_id());
+    }
+
+    public static function get_single_profile($userID)
     {
       return self::userGetter('ws_profile', $userID);
+    }
+
+    private static function get_customers()
+    {
+      $args = ['role' => 'customers'];
+      $wp_user_query = new WP_User_Query($args);
+      $customers = $wp_user_query->get_results();
+      return $customers;
+    }
+
+    private static function get_single_customer(int $id)
+    {
+      $user = array();
+
+      return $user;
+    }
+
+    private static function get_experts()
+    {
+      $args = ['role' => 'experts'];
+      $wp_user_query = new WP_User_Query($args);
+      $experts = $wp_user_query->get_results();
+      return $experts;
+    }
+
+    private static function get_single_expert(int $id)
+    {
+      $user = array();
+
+      return $user;
+    }
+
+    private static function get_user($id)
+    {
+      return get_user_by('ID', $id);
     }
 
     public static function get_customer_bookings($customer_id)
@@ -833,6 +856,38 @@ if (!class_exists('WorkServiceDB')) :
     public static function get_team()
     {
       return self::getter('ws_team', "ORDER BY teamID DESC");
+    }
+
+    public static function get_chat()
+    {
+      return self::getter('ws_chat');
+    }
+
+    public static function get_user_chats($id)
+    {
+      $userChat =  self::getter('ws_user_chat', "WHERE userID=$id");
+      $result = array();
+      foreach ($userChat as $user) :
+        $chatID = $user->chatID;
+        $result[] = self::getter('ws_chat', "WHERE chatID=$chatID ORDER BY timestamp DESC")[0];
+      endforeach;
+      return $result;
+    }
+
+    public static function get_messages($chatID)
+    {
+      return self::getter('ws_messages', "WHERE chatID=$chatID");
+    }
+
+    public static function get_user_password()
+    {
+      $userID = get_current_user_id();
+      return self::getter('ws_user_password', "WHERE userID=$userID")[0];
+    }
+
+    public static function get_trust()
+    {
+      return self::getter('ws_trusted_by');
     }
 
     # ====== Setters
@@ -876,6 +931,13 @@ if (!class_exists('WorkServiceDB')) :
     public static function set_chat($data)
     {
       self::setter('ws_chat', $data);
+      $chat = self::getter('ws_chat');
+
+      $params = array(
+        'userID' => get_current_user_id(),
+        'chatID' => $chat[0]->chatID
+      );
+      self::setter('ws_user_chat', $params);
     }
 
     public static function set_messages($data)
@@ -900,7 +962,7 @@ if (!class_exists('WorkServiceDB')) :
       self::setter('ws_reviews', $data);
     }
 
-    public static function set_trusted_by($data)
+    public static function set_trust($data)
     {
       self::setter('ws_trusted_by', $data);
     }
@@ -955,6 +1017,11 @@ if (!class_exists('WorkServiceDB')) :
       self::setter('ws_benefits', $data);
     }
 
+    public static function set_user_password(array $data)
+    {
+      self::setter('ws_user_password', $data);
+    }
+
     # ====== Updaters
     private static function updater($table, $data, $key, $val)
     {
@@ -993,14 +1060,15 @@ if (!class_exists('WorkServiceDB')) :
       self::updater('ws_profile', $data, 'userID', $id);
     }
 
-    public static function update_service_chat($data,  $id)
+    public static function update_chat($id)
     {
-      self::updater('ws_chat', $data, 'serviceID', $id);
+      $data = array('isActive' => FALSE);
+      self::updater('ws_chat', $data, 'chatID', $id);
     }
 
     public static function update_message($data,  $id)
     {
-      self::updater('ws_messages', $data, 'chatID', $id);
+      self::updater('ws_messages', $data, 'messageID', $id);
     }
 
     public static function update_user_bookings($data,  $id)
@@ -1071,6 +1139,11 @@ if (!class_exists('WorkServiceDB')) :
     public static function update_contact($data,  $id)
     {
       self::updater('ws_contact', $data, 'contactID', $id);
+    }
+
+    public static function update_user_password($data,  $id)
+    {
+      self::updater('ws_user_password', $data, 'userID', $id);
     }
 
     # ====== Deleters
@@ -1201,94 +1274,64 @@ if (!class_exists('WorkServiceDB')) :
       self::deleter('ws_benefits', 'benefitID', $id);
     }
 
+    public static function delete_user_password($id)
+    {
+      self::deleter('ws_user_password', 'userID', $id);
+    }
+
     # ====== Sub-Categories ======
 
+    // public static function get_single_user_bookings(int $user_id)
+    // {
+    //   global $wpdb;
+    //   $table_name = $wpdb->prefix . 'ws_bookings';
+    //   $results = $wpdb->get_results("SELECT * FROM $table_name WHERE customer_id=$user_id");
+    //   return $results;
+    // }
 
+    // public static function get_booking_for_user(int $user_id, int $id = 0)
+    // {
+    //   global $wpdb;
+    //   $table_name = $wpdb->prefix . 'ws_bookings';
+    //   $results = $wpdb->get_results("SELECT * FROM $table_name WHERE chat_user_id=$user_id AND id=$id");
+    //   return $results;
+    // }
 
+    // public static function update_bookings(array $data, int $id)
+    // {
+    //   global $wpdb;
+    //   $table_name = $wpdb->prefix . 'ws_bookings';
+    //   $wpdb->update($table_name, $data, array('booking_id' => $id));
+    // }
 
-    # ====== Services ======
-
-
-
-
-    # ====== Bookings ======
-
-
-    public static function get_all_specific_service_booking(int $service_id)
-    {
-      global $wpdb;
-      $service_table = $wpdb->prefix . 'ws_services';
-      $table_name = $wpdb->prefix . 'ws_bookings';
-      $results = $wpdb->get_results("SELECT * FROM $table_name AS A JOIN $service_table AS B ON A.serviceID = B.serviceID WHERE A.serviceID=$service_id ORDER BY bookingDate DESC");
-      return $results;
-    }
-
-
-    public static function get_single_user_bookings(int $user_id)
-    {
-      global $wpdb;
-      $table_name = $wpdb->prefix . 'ws_bookings';
-      $results = $wpdb->get_results("SELECT * FROM $table_name WHERE customer_id=$user_id");
-      return $results;
-    }
-
-    public static function get_booking_for_user(int $user_id, int $id = 0)
-    {
-      global $wpdb;
-      $table_name = $wpdb->prefix . 'ws_bookings';
-      $results = $wpdb->get_results("SELECT * FROM $table_name WHERE chat_user_id=$user_id AND id=$id");
-      return $results;
-    }
-
-    public static function update_bookings(array $data, int $id)
-    {
-      global $wpdb;
-      $table_name = $wpdb->prefix . 'ws_bookings';
-      $wpdb->update($table_name, $data, array('booking_id' => $id));
-    }
-
-    public static function delete_booking(int $id)
-    {
-      global $wpdb;
-      $table_name = $wpdb->prefix . 'ws_bookings';
-      $wpdb->query("DELETE FROM $table_name WHERE service_id='$id'");
-    }
+    // public static function delete_booking(int $id)
+    // {
+    //   global $wpdb;
+    //   $table_name = $wpdb->prefix . 'ws_bookings';
+    //   $wpdb->query("DELETE FROM $table_name WHERE service_id='$id'");
+    // }
 
     # ======
 
 
     # ======
 
-    public static function get_trust()
-    {
-      global $wpdb;
-      $table_name = $wpdb->prefix . 'ws_trusted_by';
-      $results = $wpdb->get_results("SELECT * FROM $table_name");
-      return $results;
-    }
 
-    public static function set_trust(array $data)
-    {
-      global $wpdb;
-      $table_name = $wpdb->prefix . 'ws_trusted_by';
-      $wpdb->insert($table_name, $data);
-    }
-
-    public static function delete_trust(int $id)
-    {
-      global $wpdb;
-      $table_name = $wpdb->prefix . 'ws_trusted_by';
-      $wpdb->query("DELETE FROM $table_name WHERE trusted_id='$id'");
-    }
+    // public static function delete_trust(int $id)
+    // {
+    //   global $wpdb;
+    //   $table_name = $wpdb->prefix . 'ws_trusted_by';
+    //   $wpdb->query("DELETE FROM $table_name WHERE trusted_id='$id'");
+    // }
 
     # ======
 
-    public static function set_about(array $data)
-    {
-      global $wpdb;
-      $table_name = $wpdb->prefix . 'ws_about_us';
-      $wpdb->insert($table_name, $data);
-    }
+    // public static function set_about(array $data)
+    // {
+    //   global $wpdb;
+    //   $table_name = $wpdb->prefix . 'ws_about_us';
+    //   $wpdb->insert($table_name, $data);
+    // }
 
     # ======
 
@@ -1300,185 +1343,6 @@ if (!class_exists('WorkServiceDB')) :
       $table_name = $wpdb->prefix . 'ws_contact';
       $results = $wpdb->get_results("SELECT * FROM $table_name");
       return $results;
-    }
-
-    # ======
-
-    # ====== Profile ======
-
-    private static function fetch_profile()
-    {
-      global $wpdb;
-      $table_name = $wpdb->prefix . 'ws_profile';
-      $results = $wpdb->get_results("SELECT * FROM $table_name");
-      return $results;
-    }
-
-    // public static function get_user_profile(int $id)
-    // {
-    //   global $wpdb;
-    //   $table_name = $wpdb->prefix . 'ws_profile';
-    //   $result = $wpdb->get_results("SELECT * FROM $table_name WHERE user_id=$id");
-    //   $data = array(
-    //     'id' => $result[0]->id,
-    //     'user' => self::get_user($result[0]->user_id),
-    //     'user_img' => wp_get_attachment_url($result[0]->user_img),
-    //     'date_added' => $result[0]->date_added,
-    //   );
-    //   return $data;
-    // }
-
-    public static function get_single_user_profile(int $id)
-    {
-      global $wpdb;
-      $table_name = $wpdb->prefix . 'ws_profile';
-      $result = $wpdb->get_results("SELECT * FROM $table_name WHERE user_id=$id");
-      $data = array(
-        'id' => $result[0]->id,
-        'user' => self::get_user($result[0]->user_id),
-        'user_img' => wp_get_attachment_url($result[0]->user_img),
-        'date_added' => $result[0]->date_added,
-      );
-      return $data;
-    }
-
-    public static function get_all_profiles()
-    {
-      $results = self::fetch_profile();
-      $data = array();
-      foreach ($results as $result) :
-        $data[] = array(
-          'id' => $result->id,
-          'user' => self::get_user($result->user_id),
-          'user_img' => wp_get_attachment_url($result->user_img),
-          'date_added' => $result->date_added,
-        );
-      endforeach;
-      return $data;
-    }
-
-    public static function get_all_customers_profile()
-    {
-      $results = self::fetch_profile();
-      $data = array();
-      foreach ($results as $result) :
-        $data[] = array(
-          'id' => $result->id,
-          'user' => self::get_single_customer($result->user_id),
-          'user_img' => wp_get_attachment_url($result->user_img),
-          'date_added' => $result->date_added,
-        );
-      endforeach;
-      return $data;
-    }
-
-    public static function get_all_experts_profile()
-    {
-      $results = self::fetch_profile();
-      $data = array();
-      foreach ($results as $result) :
-        $data[] = array(
-          'id' => $result->id,
-          'user' => self::get_single_expert($result->user_id),
-          'user_img' => wp_get_attachment_url($result->user_img),
-          'date_added' => $result->date_added,
-        );
-      endforeach;
-      return $data;
-    }
-
-    public static function update_profile(array $data, int $id)
-    {
-      global $wpdb;
-      $table_name = $wpdb->prefix . 'ws_profile';
-      $wpdb->update($table_name, $data, array('user_id' => $id));
-    }
-
-    public static function delete_profile(int $id)
-    {
-      global $wpdb;
-      $table_name = $wpdb->prefix . 'ws_profile';
-      $wpdb->query("DELETE FROM $table_name WHERE user_id='$id'");
-    }
-
-    # ====== Chats ======
-
-    public static function get_all_chats()
-    {
-      global $wpdb;
-      $table_name = $wpdb->prefix . 'ws_chat';
-      $results = $wpdb->get_results("SELECT * FROM $table_name");
-      return $results;
-    }
-
-    public static function get_all_specific_chats_type(int $type = 0)
-    {
-      global $wpdb;
-      $table_name = $wpdb->prefix . 'ws_chat';
-      $results = $wpdb->get_results("SELECT * FROM $table_name WHERE chat_type=$type");
-      return $results;
-    }
-
-    public static function get_single_user_chats(int $user_id)
-    {
-      global $wpdb;
-      $table_name = $wpdb->prefix . 'ws_chat';
-      $results = $wpdb->get_results("SELECT * FROM $table_name WHERE chat_user_id=$user_id");
-      return $results;
-    }
-
-    public static function get_user_chats(int $user_id, int $booking_id = 0)
-    {
-      global $wpdb;
-      $table_name = $wpdb->prefix . 'ws_chat';
-      $results = $wpdb->get_results("SELECT * FROM $table_name WHERE user_id=$user_id AND booking_id=$booking_id");
-      return $results;
-    }
-
-    public static function get_user_booking_chats(int $user_id, int $booking_id = 0)
-    {
-      global $wpdb;
-      $table_name = $wpdb->prefix . 'ws_chat';
-      $results = $wpdb->get_results("SELECT * FROM $table_name WHERE user_id=$user_id AND booking_id=$booking_id");
-      return $results;
-    }
-
-    public static function set_user_chat(array $data)
-    {
-      global $wpdb;
-      $table_name = $wpdb->prefix . 'ws_chat';
-      $wpdb->insert($table_name, $data);
-    }
-
-    public static function update_chat(array $data, int $id)
-    {
-      global $wpdb;
-      $table_name = $wpdb->prefix . 'ws_chat';
-      $wpdb->update($table_name, $data, array('id' => $id));
-    }
-
-    public static function delete_chat(int $id)
-    {
-      global $wpdb;
-      $table_name = $wpdb->prefix . 'ws_chat';
-      $wpdb->query("DELETE FROM $table_name WHERE booking_id='$id'");
-    }
-
-    # ====== Address ======
-
-    public static function get_requests()
-    {
-      global $wpdb;
-      $table_name = $wpdb->prefix . 'ws_requests';
-      $results = $wpdb->get_results("SELECT * FROM $table_name");
-      return $results;
-    }
-
-    public static function set_user_request(array $data)
-    {
-      global $wpdb;
-      $table_name = $wpdb->prefix . 'ws_address';
-      $wpdb->insert($table_name, $data);
     }
   }
 endif;

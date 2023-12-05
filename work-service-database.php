@@ -47,10 +47,12 @@ if (!class_exists('WorkServiceDatabase')) {
       register_activation_hook(__FILE__, [$this, 'ws_activate']);
       register_deactivation_hook(__FILE__, [$this, 'ws_deactivate']);
 
-      // WorkServiceDB::set_category(array(
-      //   'categoryName' => 'General',
-      //   'categoryIcon' => 4,
+      // WorkServiceDB::set_chat(array(
+      //   // 'serviceID' => 1,
+      //   'chatName' => 'Customer Support',
       // ));
+
+      // WorkServiceDB::update_chat(1);
     }
 
     /**

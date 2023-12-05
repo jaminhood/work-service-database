@@ -37,6 +37,10 @@ if (!class_exists('WorkServiceDatabaseRestAPI')) :
         'methods'  => 'POST',
         'callback' => [$this, 'logout']
       ]);
+      register_rest_route('ws-auth/v1', 'revalidate', [
+        'methods'  => 'POST',
+        'callback' => [$this, 'revalidate']
+      ]);
       register_rest_route('ws-auth/v1', 'delete-account', [
         'methods'  => 'DELETE',
         'callback' => [$this, 'delete_account']
@@ -92,14 +96,24 @@ if (!class_exists('WorkServiceDatabaseRestAPI')) :
         'callback' => [$this, 'set_user_address'],
         'permission_callback' => [$this, 'permit_user']
       ]);
-      register_rest_route($api_v, 'chat/get', [
+      register_rest_route($api_v, 'chats', [
         'methods'  => 'GET',
-        'callback' => [$this, 'get_user_chat_messages'],
+        'callback' => [$this, 'get_user_chat_list'],
         'permission_callback' => [$this, 'permit_user']
       ]);
-      register_rest_route($api_v, 'chat/post', [
+      register_rest_route($api_v, 'chat', [
         'methods'  => 'POST',
-        'callback' => [$this, 'set_user_chat_messages'],
+        'callback' => [$this, 'set_user_chat_list'],
+        'permission_callback' => [$this, 'permit_user']
+      ]);
+      register_rest_route($api_v, 'messages', [
+        'methods'  => 'GET',
+        'callback' => [$this, 'get_messages'],
+        'permission_callback' => [$this, 'permit_user']
+      ]);
+      register_rest_route($api_v, 'message', [
+        'methods'  => 'POST',
+        'callback' => [$this, 'set_message'],
         'permission_callback' => [$this, 'permit_user']
       ]);
       register_rest_route($api_v, 'requests', [
@@ -107,7 +121,7 @@ if (!class_exists('WorkServiceDatabaseRestAPI')) :
         'callback' => [$this, 'get_customer_requests'],
         'permission_callback' => [$this, 'permit_user']
       ]);
-      register_rest_route($api_v, 'requests', [
+      register_rest_route($api_v, 'request', [
         'methods'  => 'POST',
         'callback' => [$this, 'set_customer_request'],
         'permission_callback' => [$this, 'permit_user']
@@ -197,21 +211,21 @@ if (!class_exists('WorkServiceDatabaseRestAPI')) :
         'methods'  => 'GET',
         'callback' => [$this, 'get_address']
       ]);
-      register_rest_route($api_v, 'chat/get', [
+      register_rest_route($api_v, 'admin/chat', [
         'methods'  => 'GET',
-        'callback' => [$this, 'get_user_chat_messages'],
+        'callback' => [$this, 'get_user_chat_list'],
       ]);
       register_rest_route($api_v, 'chat/post', [
         'methods'  => 'POST',
-        'callback' => [$this, 'set_user_chat_messages'],
+        'callback' => [$this, 'set_user_chat_list'],
       ]);
       register_rest_route($api_v, 'admin/requests', [
         'methods'  => 'GET',
         'callback' => [$this, 'get_requests'],
       ]);
-      register_rest_route($api_v, 'profile/get', [
+      register_rest_route($api_v, 'admin/profile', [
         'methods'  => 'GET',
-        'callback' => [$this, 'get_profiles'],
+        'callback' => [$this, 'get_all_profiles'],
       ]);
       register_rest_route($api_v, 'admin/news', [
         'methods'  => 'GET',
@@ -281,111 +295,6 @@ if (!class_exists('WorkServiceDatabaseRestAPI')) :
         'methods'  => 'POST',
         'callback' => [$this, 'set_contact'],
       ]);
-
-      # ====== Users ======
-
-      register_rest_route($api_v, 'service/get', [
-        'methods'  => 'GET',
-        'callback' => [$this, 'get_single_service'],
-      ]);
-      register_rest_route($api_v, 'category/single/get', [
-        'methods'  => 'GET',
-        'callback' => [$this, 'get_single_category']
-      ]);
-      register_rest_route($api_v, 'bookings/set', [
-        'methods'  => 'POST',
-        'callback' => [$this, 'set_booking_react']
-      ]);
-
-      # === Profiles ===
-      register_rest_route($api_v, 'profiles', [
-        'methods'  => 'GET',
-        'callback' => [$this, 'get_all_profiles']
-      ]);
-      # === Categories ===
-      register_rest_route($api_v, 'categories/web/get', [
-        'methods'  => 'GET',
-        'callback' => [$this, 'get_all_categories']
-      ]);
-      register_rest_route($api_v, 'category/web/set', [
-        'methods'  => 'POST',
-        'callback' => [$this, 'set_category_react']
-      ]);
-      register_rest_route($api_v, 'category/web/update', [
-        'methods'  => 'POST',
-        'callback' => [$this, 'update_category_react']
-      ]);
-      register_rest_route($api_v, 'category/web/delete', [
-        'methods'  => 'DELETE',
-        'callback' => [$this, 'delete_category_react']
-      ]);
-      # === Services ===
-      register_rest_route($api_v, 'services/web/get', [
-        'methods'  => 'GET',
-        'callback' => [$this, 'get_all_services_react']
-      ]);
-      register_rest_route($api_v, 'service/web/get', [
-        'methods'  => 'GET',
-        'callback' => [$this, 'get_single_service_react']
-      ]);
-      register_rest_route($api_v, 'services/web/set', [
-        'methods'  => 'POST',
-        'callback' => [$this, 'set_services_react']
-      ]);
-      register_rest_route($api_v, 'services/web/update', [
-        'methods'  => 'POST',
-        'callback' => [$this, 'update_services_react']
-      ]);
-      register_rest_route($api_v, 'services/web/delete', [
-        'methods'  => 'DELETE',
-        'callback' => [$this, 'delete_services_react']
-      ]);
-      # === Bookings ===
-      register_rest_route($api_v, 'bookings/web/get', [
-        'methods'  => 'GET',
-        'callback' => [$this, 'get_all_bookings_react']
-      ]);
-      register_rest_route($api_v, 'bookings/web/get-user', [
-        'methods'  => 'GET',
-        'callback' => [$this, 'get_all_user_bookings_react']
-      ]);
-      register_rest_route($api_v, 'booking/web/get', [
-        'methods'  => 'GET',
-        'callback' => [$this, 'get_single_booking_react']
-      ]);
-      register_rest_route($api_v, 'bookings/web/update', [
-        'methods'  => 'POST',
-        'callback' => [$this, 'update_bookings_react']
-      ]);
-      register_rest_route($api_v, 'bookings/web/delete', [
-        'methods'  => 'DELETE',
-        'callback' => [$this, 'delete_bookings_react']
-      ]);
-      # === Chats ===
-      register_rest_route($api_v, 'chats/web/get', [
-        'methods'  => 'GET',
-        'callback' => [$this, 'get_all_chats_react']
-      ]);
-      register_rest_route($api_v, 'chats/web/get-user', [
-        'methods'  => 'GET',
-        'callback' => [$this, 'get_all_user_chats_react']
-      ]);
-      register_rest_route($api_v, 'chat/web/get', [
-        'methods'  => 'GET',
-        'callback' => [$this, 'get_single_chat_react']
-      ]);
-      register_rest_route($api_v, 'chats/web/set', [
-        'methods'  => 'POST',
-        'callback' => [$this, 'set_chats_react']
-      ]);
-      register_rest_route($api_v, 'chats/web/update', [
-        'methods'  => 'POST',
-        'callback' => [$this, 'update_chats_react']
-      ]);
-      register_rest_route($api_v, 'chats/web/delete', [
-        'methods'  => 'DELETE',
-        'callback' => [$this, 'delete_chats_react']
-      ]);
     }
 
     public function permit_user()
@@ -413,40 +322,44 @@ if (!class_exists('WorkServiceDatabaseRestAPI')) :
       if (!isset($request['username']) && !isset($request['password'])) {
         return new WP_Error(
           'incomplete fields', // code
-          'incomplete fields were submitted for customer registration', // data
-          ['status' => 400] // status
+          'incomplete fields were submitted for customer login', // data
+          array('status' => 400) // status
         );
       }
 
-      # Setting the query arguments to get the list of users
-      $username = sanitize_text_field($request['username']);
-      $password = sanitize_text_field($request['password']);
-      $rememberMe = sanitize_text_field($request['rememberMe']);
+      try {
+        # Setting the query arguments to get the list of users
+        $username = sanitize_text_field($request['username']);
+        $password = sanitize_text_field($request['password']);
+        $rememberMe = $request['rememberMe'];
 
-      $rememberMeValue = false;
+        $rememberMeValue = false;
 
-      if ($rememberMe == 1) {
-        $rememberMeValue = true;
-      }
+        if ($rememberMe == 1) {
+          $rememberMeValue = true;
+        }
 
-      $creds = array(
-        'user_login'    => $username,
-        'user_password' => $password,
-        'remember'      => $rememberMeValue
-      );
+        $creds = array('user_login' => $username, 'user_password' => $password, 'remember' => $rememberMeValue);
+        $user = wp_signon($creds, is_ssl());
 
-      $user = wp_signon($creds, is_ssl());
+        $response = "";
 
-      $response = "";
+        if (is_wp_error($user)) {
+          $response = new WP_REST_Response($user->get_error_message());
+          $response->set_status(400);
+          return $response;
+        }
 
-      if (is_wp_error($user)) {
-        $response = new WP_REST_Response($user->get_error_message());
-      } else {
         $response = new WP_REST_Response($user);
+        $response->set_status(200);
+        return $response;
+      } catch (\Throwable $th) {
+        return new WP_Error(
+          'error processing user login', # code
+          "an error occured while trying to sign in a user", # data
+          array('status' => 400) # status
+        );
       }
-
-      $response->set_status(200);
-      return $response;
     }
 
     public function register($request)
@@ -455,49 +368,59 @@ if (!class_exists('WorkServiceDatabaseRestAPI')) :
         return new WP_Error(
           'incomplete fields', // code
           'incomplete fields were submitted for customer registration', // data
-          ['status' => 400] // status
+          array('status' => 400) // status
         );
       }
 
-      # Setting the query arguments to get the list of users
-      $email = sanitize_email($request['email']);
-      $username = sanitize_text_field($request['username']);
-      $phone = sanitize_text_field($request['phone']);
-      $password = sanitize_text_field($request['password']);
-      $first_name = sanitize_text_field($request['firstname']);
-      $last_name = sanitize_text_field($request['lastname']);
-      $role = sanitize_text_field($request['role']);
+      try {
+        # Setting the query arguments to get the list of users
+        $email = sanitize_email($request['email']);
+        $username = sanitize_text_field($request['username']);
+        $phone = sanitize_text_field($request['phone']);
+        $password = sanitize_text_field($request['password']);
+        $first_name = sanitize_text_field($request['firstname']);
+        $last_name = sanitize_text_field($request['lastname']);
+        $role = sanitize_text_field($request['role']);
 
-      if (email_exists($email)) {
-        $response = new WP_REST_Response('this email address have been used by another user. kindly provide another');
+        if (email_exists($email)) {
+          $response = new WP_REST_Response('this email address have been used by another user. kindly provide another');
+          $response->set_status(400);
+          return $response;
+        }
+
+        if (username_exists($username)) {
+          $response = new WP_REST_Response('this username address have been used by another user. kindly provide another');
+          $response->set_status(400);
+          return $response;
+        }
+
+        $userID = WorkServiceDB::setup_new_account([
+          'first_name' => $first_name,
+          'last_name'  => $last_name,
+          'email'      => $email,
+          'phone'      => $phone,
+          'password'   => $password,
+          'username'   => $username,
+          'role'       => $role
+        ]);
+
+        $userParam = array("userID" => $userID);
+        $userPassParam = array("userID" => $userID, 'userPass' => wp_hash_password($password));
+
+        WorkServiceDB::set_user_address($userParam);
+        WorkServiceDB::set_user_profile($userParam);
+        WorkServiceDB::set_user_password($userPassParam);
+
+        $response = new WP_REST_Response('User Created Successfully');
         $response->set_status(200);
         return $response;
+      } catch (\Throwable $th) {
+        return new WP_Error(
+          'error processing user registration', # code
+          "an error occured while trying to register a user", # data
+          array('status' => 400) # status
+        );
       }
-
-      if (username_exists($username)) {
-        $response = new WP_REST_Response('this username address have been used by another user. kindly provide another');
-        $response->set_status(200);
-        return $response;
-      }
-
-      $userID = WorkServiceDB::setup_new_account([
-        'first_name' => $first_name,
-        'last_name'  => $last_name,
-        'email'      => $email,
-        'phone'      => $phone,
-        'password'   => $password,
-        'username'   => $username,
-        'role'       => $role
-      ]);
-
-      $userParam = array("userID" => $userID);
-
-      WorkServiceDB::set_user_address($userParam);
-      WorkServiceDB::set_user_profile($userParam);
-
-      $response = new WP_REST_Response('User Created Successfully');
-      $response->set_status(200);
-      return $response;
     }
 
     public function forgot_password($request)
@@ -505,33 +428,52 @@ if (!class_exists('WorkServiceDatabaseRestAPI')) :
       if (!isset($request['email'])) {
         return new WP_Error(
           'incomplete fields', // code
-          'incomplete fields were submitted for customer registration', // data
-          ['status' => 400] // status
+          'incomplete fields were submitted for forgot password', // data
+          array('status' => 400) // status
         );
       }
 
-      # Setting the query arguments to get the list of users
-      $email = sanitize_email($request['email']);
+      try {
+        # Setting the query arguments to get the list of users
+        $email = sanitize_email($request['email']);
 
-      if (!(email_exists($email))) {
+        if (!(email_exists($email))) {
+          return new WP_Error(
+            'this email does not exist', // code
+            'this email address is not registered to any user', // data
+            array('status' => 401) // status
+          );
+        }
+
+        WorkServiceSettings::password_reset_eMail(email_exists($email), $email);
+
+        $response = new WP_REST_Response('recovery email sent successfully');
+        $response->set_status(200);
+        return $response;
+      } catch (\Throwable $th) {
         return new WP_Error(
-          'this email does not exist', // code
-          'this email address is not registered to any user', // data
-          array('status' => 401) // status
+          'error processing forgot password', # code
+          "an error occured while trying to register a user", # data
+          array('status' => 400) # status
         );
       }
-
-      WorkServiceSettings::password_reset_eMail(email_exists($email), $email);
-
-      $response = new WP_REST_Response('recovery email sent successfully');
-      $response->set_status(200);
-      return $response;
     }
 
     public function logout()
     {
       wp_logout();
       $response = new WP_REST_Response('Logged Out Successfully');
+      $response->set_status(200);
+      return $response;
+    }
+
+    public function revalidate()
+    {
+      $user = WorkServiceDB::get_user_password();
+
+      // $user['userPass'] = wp_;
+      wp_logout();
+      $response = new WP_REST_Response($user);
       $response->set_status(200);
       return $response;
     }
@@ -576,7 +518,7 @@ if (!class_exists('WorkServiceDatabaseRestAPI')) :
       } catch (\Throwable $th) {
         return new WP_Error(
           'error processing categories', # code
-          "an error occured while trying to get categories - $th", # data
+          "an error occured while trying to get categories", # data
           ['status' => 400] # status
         );
       }
@@ -866,22 +808,18 @@ if (!class_exists('WorkServiceDatabaseRestAPI')) :
       return $response;
     }
 
-    public function get_user_chat_messages($request)
+    private function get_chat_list($chats)
     {
-      if (!isset($request['booking_id'])) {
-        return new WP_Error(
-          'incomplete fields', // code
-          'incomplete fields were submitted for getting Service Endpoint', // data
-          ['status' => 400] // status
-        );
-      }
-
-      $id = get_current_user_id();
-
       try {
-        $response = new WP_REST_Response(WorkServiceDB::get_user_chats($id, $request['booking_id']));
-        $response->set_status(200);
-        return $response;
+        foreach ($chats as $chat) :
+          if ($chat->serviceID != 0) :
+            $chat->serviceName = WorkServiceDB::get_service($chat->serviceID)[0]->serviceName;
+          else :
+            $chat->serviceName = "Customer Support";
+          endif;
+        endforeach;
+
+        return $chats;
       } catch (\Throwable $th) {
         return new WP_Error(
           'error processing chats', # code
@@ -891,31 +829,95 @@ if (!class_exists('WorkServiceDatabaseRestAPI')) :
       }
     }
 
-    public function set_user_chat_messages($request)
+    public function get_user_chat_list()
     {
-      if (!isset($request['chat_sender']) && !isset($request['chat_message']) && !isset($request['chat_type']) && !isset($request['chat_booking_id'])) {
+      $chats = WorkServiceDB::get_user_chats(get_current_user_id());
+      $chatList = $this->get_chat_list($chats);
+      $response = new WP_REST_Response($chatList);
+      $response->set_status(200);
+      return $response;
+    }
+
+    // TODO => Get admin chat list
+
+    public function set_user_chat_list($request)
+    {
+      if (!isset($request['chat_name'])) :
         return new WP_Error(
           'incomplete fields', // code
-          'incomplete fields were submitted for setting Category Endpoint', // data
+          'incomplete fields were submitted for Sending Chat Endpoint', // data
           ['status' => 400] // status
         );
-      }
+      endif;
 
-      $user_id = get_current_user_id();
-      $chat_type = $request['chat_type'];
-      $chat_booking_id = $request['chat_booking_id'];
-      $chat_sender = sanitize_text_field($request['chat_sender']);
-      $chat_message = sanitize_text_field($request['chat_message']);
+      $chatName = $request['chat_name'];
+      $serviceID = $request['service_id'];
 
       WorkServiceDB::set_chat(array(
-        'user_id' => $user_id,
-        'chat_type' => $chat_type,
-        'booking_id' => $chat_booking_id,
-        'chat_sender' => $chat_sender,
-        'chat_message' => $chat_message,
+        'serviceID' => $serviceID,
+        'chatName' => $chatName,
       ));
 
       $response = new WP_REST_Response('Sent Successful');
+      $response->set_status(200);
+      return $response;
+    }
+
+    public function get_messages($request)
+    {
+      if (!isset($request['chat_id'])) :
+        return new WP_Error(
+          'incomplete fields', // code
+          'incomplete fields were submitted for Sending Message Endpoint', // data
+          ['status' => 400] // status
+        );
+      endif;
+
+      $messages = WorkServiceDB::get_messages($request['chat_id']);
+      $response = new WP_REST_Response($messages);
+      $response->set_status(200);
+      return $response;
+    }
+
+    public function set_message($request)
+    {
+      if (!isset($request['type']) && !isset($request['chat_id'])) :
+        return new WP_Error(
+          'incomplete fields', // code
+          'incomplete fields were submitted for Sending Message Endpoint', // data
+          ['status' => 400] // status
+        );
+      endif;
+
+      $chatID = $request['chat_id'];
+      $sender = 'customer';
+
+      if (isset($request['sender'])) :
+        $sender = sanitize_text_field($request['sender']);
+      endif;
+
+      $params = array('sender' => $sender, 'chatID' => $chatID);
+
+      if ($request['type'] === 'message') {
+        $params['messageText'] = sanitize_text_field($request['message_text']);
+      }
+
+      if ($request['type'] === 'expert') {
+        $params['expertID'] = $request['expert_id'];
+      }
+
+      if ($request['type'] === 'payment') {
+        $params['paymentLink'] = $request['payment_link'];
+      }
+
+      if ($request['type'] === 'rate') {
+        $params['isRate'] = TRUE;
+      }
+
+      // WorkServiceDB::set_messages($params);
+
+      // $response = new WP_REST_Response('Message Sent');
+      $response = new WP_REST_Response($params);
       $response->set_status(200);
       return $response;
     }
@@ -1402,22 +1404,7 @@ if (!class_exists('WorkServiceDatabaseRestAPI')) :
     public function get_requests()
     {
       try {
-        $response = new WP_REST_Response(WorkServiceDB::get_requests());
-        $response->set_status(200);
-        return $response;
-      } catch (\Throwable $th) {
-        return new WP_Error(
-          'error processing categories', # code
-          "an error occured while trying to get services - $th", # data
-          ['status' => 400] # status
-        );
-      }
-    }
-
-    public function get_profiles()
-    {
-      try {
-        $response = new WP_REST_Response(WorkServiceDB::get_all_profiles());
+        $response = new WP_REST_Response(WorkServiceDB::get_user_requests());
         $response->set_status(200);
         return $response;
       } catch (\Throwable $th) {
@@ -1551,7 +1538,7 @@ if (!class_exists('WorkServiceDatabaseRestAPI')) :
         );
       }
 
-      WorkServiceDB::delete_trust($id);
+      WorkServiceDB::delete_trusted_by($id);
 
       $response = new WP_REST_Response('Deleted Successfully');
       $response->set_status(200);
@@ -1858,957 +1845,24 @@ if (!class_exists('WorkServiceDatabaseRestAPI')) :
         );
       }
     }
-
-    public function update_contact($request)
-    {
-      if (!isset($request['team_id'])) {
-        return new WP_Error(
-          'incomplete fields', // code
-          'incomplete fields were submitted for setting Category Endpoint', // data
-          ['status' => 400] // status
-        );
-      }
-
-      $teamID = $request['team_id'];
-      $team_name = $request['team_name'];
-      $team_role = $request['team_role'];
-      $team_img = $request['team_img'];
-      $team_desc = $request['team_desc'];
-
-      WorkServiceDB::update_team(array(
-        'team_name' => $team_name,
-        'team_role' => $team_role,
-        'team_img' => $team_img,
-        'team_desc' => $team_desc,
-      ), $teamID);
-
-      $response = new WP_REST_Response('Upload Successful');
-      $response->set_status(200);
-      return $response;
-    }
-
     # ======
-
-    public function get_single_service($request)
-    {
-      if (!isset($request['service_id'])) {
-        return new WP_Error(
-          'incomplete fields', // code
-          'incomplete fields were submitted for getting Service Endpoint', // data
-          ['status' => 400] // status
-        );
-      }
-
-      $id = $request['service_id'];
-      if (!is_numeric($id)) {
-        return new WP_Error(
-          'ID is not a number', # code
-          'This id you sent is not a numerical value', # message
-          ['status' => 400] # status
-        );
-      }
-
-      try {
-        $ser = array();
-
-        foreach (WorkServiceDB::get_service($id) as $service) :
-          $ser = array(
-            'service_id' => $service->service_id,
-            'service_name' => $service->service_name,
-            'service_icon_id' => $service->service_icon,
-            'service_icon' => wp_get_attachment_url($service->service_icon),
-            'service_desc' => $service->service_desc,
-            'sub_category_id' => $service->sub_category_id,
-            'sub_category' => WorkServiceDB::get_category($service->sub_category_id)[0]->category_name,
-            'service_date' => $service->date_added,
-          );
-        endforeach;
-
-        $response = new WP_REST_Response($ser);
-        $response->set_status(200);
-        return $response;
-      } catch (\Throwable $th) {
-        return new WP_Error(
-          'error processing categories', # code
-          "an error occured while trying to get services - $th", # data
-          ['status' => 400] # status
-        );
-      }
-    }
-
-    public function get_single_sub_category($request)
-    {
-      if (!isset($request['sub_category_id'])) {
-        return new WP_Error(
-          'incomplete fields', // code
-          'incomplete fields were submitted for setting Category Endpoint', // data
-          ['status' => 400] // status
-        );
-      }
-
-      $id = $request['sub_category_id'];
-      if (!is_numeric($id)) {
-        return new WP_Error(
-          'ID is not a number', # code
-          'This id you sent is not a numerical value', # message
-          ['status' => 400] # status
-        );
-      }
-
-      try {
-        $categories = array();
-
-        foreach (WorkServiceDB::get_sub_category($id) as $sub_category) :
-          $categories[] = array(
-            'sub_category_id' => $sub_category->sub_category_id,
-            'sub_category_name' => $sub_category->sub_category_name,
-            'sub_category_icon_id' => $sub_category->sub_category_icon,
-            'sub_category_icon' => wp_get_attachment_url($sub_category->sub_category_icon),
-            'sub_category_date' => $sub_category->time_stamp,
-          );
-        endforeach;
-
-        $response = new WP_REST_Response($categories);
-        $response->set_status(200);
-        return $response;
-      } catch (\Throwable $th) {
-        return new WP_Error(
-          'error processing categories', # code
-          "an error occured while trying to get categories - $th", # data
-          ['status' => 400] # status
-        );
-      }
-    }
-
-    private function bookings_fetch_data($params)
-    {
-      $bookings = array();
-
-      foreach ($params as $booking) :
-        $user_id = $booking->customer_id;
-        $user_name = get_user_by('id', $user_id)->display_name;
-        $service_icon = 0;
-        $service_name = "Customer Service";
-        $service_sub_category = "Customer Service";
-        $booking_status = $booking->booking_status;
-        $booking_price = $booking->booking_price;
-        $booking_desc = $booking->booking_desc;
-        $booking_name = $booking->booking_name;
-        $booking_rate = $booking->booking_rate;
-        $booking_date = $booking->time_stamp;
-
-        if ($booking->service_id != 0) {
-          $service = WorkServiceDB::get_service($booking->service_id)[0];
-
-          $service_icon = wp_get_attachment_url($service->service_icon);
-          $service_name = $service->service_name;
-          $service_sub_category = WorkServiceDB::get_sub_category($service->sub_category_id)->sub_category_name;
-        }
-
-        $bookings[] = array(
-          'user_id' => $user_id,
-          'user_name' => $user_name,
-          'booking_id' => $booking->booking_id,
-          'service_icon' => $service_icon,
-          'service_name' => $service_name,
-          'service_category' => $service_sub_category,
-          'booking_status' => $booking_status,
-          'booking_price' => $booking_price,
-          'booking_desc' => $booking_desc,
-          'booking_name' => $booking_name,
-          'booking_rate' => $booking_rate,
-          'booking_date' => $booking_date,
-        );
-      endforeach;
-
-      return array_reverse($bookings);
-    }
-
-    public function get_all_bookings_react($request)
-    {
-      if (!isset($request['user_id'])) {
-        return new WP_Error(
-          'incomplete fields', // code
-          'incomplete fields were submitted for getting Service Endpoint', // data
-          ['status' => 400] // status
-        );
-      }
-
-      $id = $request['user_id'];
-      if (!is_numeric($id)) {
-        return new WP_Error(
-          'ID is not a number', # code
-          'This id you sent is not a numerical value', # message
-          ['status' => 400] # status
-        );
-      }
-
-      try {
-        $role = 'administrator';
-        $users = get_users(array('role' => array($role)));
-
-        $bookings = array();
-
-        if ($id == 0) {
-          $bookings = $this->bookings_fetch_data(WorkServiceDB::get_bookings());
-        } else {
-          $bookings = $this->bookings_fetch_data(WorkServiceDB::get_single_user_bookings($id));
-        }
-
-        $response = new WP_REST_Response($bookings);
-        $response->set_status(200);
-        return $response;
-      } catch (\Throwable $th) {
-        return new WP_Error(
-          'error processing categories', # code
-          "an error occured while trying to get categories - $th", # data
-          ['status' => 400] # status
-        );
-      }
-    }
-
-    public function get_all_user_bookings_react($request)
-    {
-      if (!isset($request['user_id'])) {
-        return new WP_Error(
-          'incomplete fields', // code
-          'incomplete fields were submitted for getting Service Endpoint', // data
-          ['status' => 400] // status
-        );
-      }
-
-      $id = $request['user_id'];
-      if (!is_numeric($id)) {
-        return new WP_Error(
-          'ID is not a number', # code
-          'This id you sent is not a numerical value', # message
-          ['status' => 400] # status
-        );
-      }
-
-      try {
-        $bookings = array();
-
-        foreach (WorkServiceDB::get_single_user_bookings($id) as $booking) :
-          $service_icon = 0;
-          $service_name = "Customer Service";
-          $service_category = "Customer Service";
-          $booking_status = $booking->booking_status;
-          $booking_price = $booking->booking_price;
-          $booking_desc = $booking->booking_desc;
-          $booking_location = $booking->booking_location;
-          $booking_rate = $booking->booking_rate;
-          $booking_date = $booking->date_added;
-
-          if ($booking->service_id != 0) {
-            $service = WorkServiceDB::get_service($booking->service_id)[0];
-
-            $service_icon = wp_get_attachment_url($service->service_icon);
-            $service_name = $service->service_name;
-            $service_category = WorkServiceDB::get_category($service->service_category_id)[0]->category_name;
-          }
-
-          $bookings[] = array(
-            'booking_id' => $booking->id,
-            'service_icon' => $service_icon,
-            'service_name' => $service_name,
-            'service_category' => $service_category,
-            'booking_status' => $booking_status,
-            'booking_price' => $booking_price,
-            'booking_desc' => $booking_desc,
-            'booking_location' => $booking_location,
-            'booking_rate' => $booking_rate,
-            'booking_date' => $booking_date,
-          );
-        endforeach;
-
-        $response = new WP_REST_Response($bookings);
-        $response->set_status(200);
-        return $response;
-      } catch (\Throwable $th) {
-        return new WP_Error(
-          'error processing categories', # code
-          "an error occured while trying to get services - $th", # data
-          ['status' => 400] # status
-        );
-      }
-    }
 
     # ====== Admin ======
 
-    public function get_all_profiles($request)
+    public function get_all_profiles()
     {
-      if (!isset($request['type'])) {
-        return new WP_Error(
-          'incomplete fields', // code
-          'incomplete fields were submitted for Profile Endpoint', // data
-          ['status' => 400] // status
-        );
-      }
-
-      $type = $request->get_param('type');
-      if (!is_numeric($type)) {
-        return new WP_Error(
-          'Type is not a number', # code
-          'This type you sent is not a numerical value', # message
-          ['status' => 400] # status
-        );
-      }
-
-      $response = new WP_REST_Response("Type Not Found");
-
-      # ====== Get All Profiles ======
-      if ($type == 0) {
-        $profiles = WorkServiceDB::get_all_profiles();
+      try {
+        $profiles = WorkServiceDB::get_all_profile();
         $response = new WP_REST_Response($profiles);
-      }
-
-      # ====== Get All Customers Profile ======
-      if ($type == 1) {
-        $profiles = WorkServiceDB::get_all_customers_profile();
-        $response = new WP_REST_Response($profiles);
-      }
-
-      # ====== Get All Experts Profile ======
-      if ($type == 2) {
-        $profiles = WorkServiceDB::get_all_experts_profile();
-        $response = new WP_REST_Response($profiles);
-      }
-
-      $response->set_status(200);
-      return $response;
-    }
-
-    public function get_single_category($request)
-    {
-      if (!isset($request['category_id'])) {
-        return new WP_Error(
-          'incomplete fields', // code
-          'incomplete fields were submitted for setting Category Endpoint', // data
-          ['status' => 400] // status
-        );
-      }
-
-      $id = $request['category_id'];
-      if (!is_numeric($id)) {
-        return new WP_Error(
-          'ID is not a number', # code
-          'This id you sent is not a numerical value', # message
-          ['status' => 400] # status
-        );
-      }
-
-      try {
-        $categories = array();
-
-        foreach (WorkServiceDB::get_category($id) as $category) :
-          $categories[] = array(
-            'category_id' => $category->id,
-            'category_name' => $category->category_name,
-            'category_icon_id' => $category->category_icon,
-            'category_icon' => wp_get_attachment_url($category->category_icon),
-            'category_date' => $category->date_added,
-          );
-        endforeach;
-
-        $response = new WP_REST_Response($categories);
         $response->set_status(200);
         return $response;
       } catch (\Throwable $th) {
         return new WP_Error(
-          'error processing categories', # code
-          "an error occured while trying to get categories - $th", # data
-          ['status' => 400] # status
+          'error processing profiles', # code
+          "an error occured while trying to get profiles", # data
+          array('status' => 400) # status
         );
       }
-    }
-
-    public function set_category_react($request)
-    {
-      if (!isset($request['category_name']) && !isset($request['category_icon'])) {
-        return new WP_Error(
-          'incomplete fields', // code
-          'incomplete fields were submitted for setting Category Endpoint', // data
-          ['status' => 400] // status
-        );
-      }
-
-      $category_name = sanitize_text_field($request['category_name']);
-      $category_icon = $request['category_icon'];
-
-      WorkServiceDB::set_category(array(
-        'category_name' => $category_name,
-        'category_icon' => $category_icon
-      ));
-
-      $response = new WP_REST_Response('Upload Successful');
-      $response->set_status(200);
-      return $response;
-    }
-
-    public function update_category_react($request)
-    {
-      if (!isset($request['category_id'])) {
-        return new WP_Error(
-          'incomplete fields', // code
-          'incomplete fields were submitted for setting Category Endpoint', // data
-          ['status' => 400] // status
-        );
-      }
-
-      $id = $request['category_id'];
-      if (!is_numeric($id)) {
-        return new WP_Error(
-          'ID is not a number', # code
-          'This id you sent is not a numerical value', # message
-          ['status' => 400] # status
-        );
-      }
-
-      $category_name = sanitize_text_field($request['category_name']);
-      $category_icon = $request['category_icon'];
-
-      WorkServiceDB::update_category(array(
-        'category_name' => $category_name,
-        'category_icon' => $category_icon
-      ), $id);
-
-      $response = new WP_REST_Response('Updated Successfully');
-      $response->set_status(200);
-      return $response;
-    }
-
-    public function delete_category_react($request)
-    {
-      if (!isset($request['category_id'])) {
-        return new WP_Error(
-          'incomplete fields', // code
-          'incomplete fields were submitted for setting Category Endpoint', // data
-          ['status' => 400] // status
-        );
-      }
-
-      $id = $request['category_id'];
-      if (!is_numeric($id)) {
-        return new WP_Error(
-          'ID is not a number', # code
-          'This id you sent is not a numerical value', # message
-          ['status' => 400] # status
-        );
-      }
-
-      WorkServiceDB::delete_category($id);
-
-      // foreach (WorkServiceDB::get_services_by_category($id) as $service) :
-      //  WorkServiceDB::delete_service($service->id);
-      // endforeach;
-
-      $response = new WP_REST_Response('Deleted Successfully');
-      $response->set_status(200);
-      return $response;
-    }
-
-    public function get_all_services_react()
-    {
-      try {
-        $services = array();
-
-        foreach (WorkServiceDB::get_services() as $service) :
-          $services[] = array(
-            'service_id' => $service->id,
-            'service_name' => $service->service_name,
-            'service_icon_id' => $service->service_icon,
-            'service_icon' => wp_get_attachment_url($service->service_icon),
-            'service_desc' => $service->service_desc,
-            'service_category_id' => $service->service_category_id,
-            'service_category' => WorkServiceDB::get_category($service->service_category_id)[0]->category_name,
-            'service_date' => $service->date_added,
-          );
-        endforeach;
-
-        $response = new WP_REST_Response($services);
-        $response->set_status(200);
-        return $response;
-      } catch (\Throwable $th) {
-        return new WP_Error(
-          'error processing categories', # code
-          "an error occured while trying to get categories - $th", # data
-          ['status' => 400] # status
-        );
-      }
-    }
-
-    public function set_services_react($request)
-    {
-      if (!isset($request['service_name']) && !isset($request['service_icon']) && !isset($request['service_desc']) && !isset($request['service_category_id'])) {
-        return new WP_Error(
-          'incomplete fields', // code
-          'incomplete fields were submitted for setting Category Endpoint', // data
-          ['status' => 400] // status
-        );
-      }
-
-      $service_name = sanitize_text_field($request['service_name']);
-      $service_desc = sanitize_text_field($request['service_desc']);
-      $service_category_id = $request['service_category_id'];
-      $service_icon = $request['service_icon'];
-
-      WorkServiceDB::set_service(array(
-        'service_name' => $service_name,
-        'service_desc' => $service_desc,
-        'service_category_id' => $service_category_id,
-        'service_icon' => $service_icon,
-      ));
-
-      $response = new WP_REST_Response('Upload Successful');
-      $response->set_status(200);
-      return $response;
-    }
-
-    public function update_services_react($request)
-    {
-      if (!isset($request['service_id'])) {
-        return new WP_Error(
-          'incomplete fields', // code
-          'incomplete fields were submitted for setting Category Endpoint', // data
-          ['status' => 400] // status
-        );
-      }
-
-      $id = $request['service_id'];
-      if (!is_numeric($id)) {
-        return new WP_Error(
-          'ID is not a number', # code
-          'This id you sent is not a numerical value', # message
-          ['status' => 400] # status
-        );
-      }
-
-      $service_name = sanitize_text_field($request['service_name']);
-      $service_desc = sanitize_text_field($request['service_desc']);
-      $service_category_id = $request['service_category_id'];
-      $service_icon = $request['service_icon'];
-
-      WorkServiceDB::update_service(array(
-        'service_name' => $service_name,
-        'service_desc' => $service_desc,
-        'service_category_id' => $service_category_id,
-        'service_icon' => $service_icon,
-      ), $id);
-
-      $response = new WP_REST_Response('Updated Successfully');
-      $response->set_status(200);
-      return $response;
-    }
-
-    public function delete_services_react($request)
-    {
-      if (!isset($request['service_id'])) {
-        return new WP_Error(
-          'incomplete fields', // code
-          'incomplete fields were submitted for setting Service Endpoint', // data
-          ['status' => 400] // status
-        );
-      }
-
-      $id = $request['service_id'];
-      if (!is_numeric($id)) {
-        return new WP_Error(
-          'ID is not a number', # code
-          'This id you sent is not a numerical value', # message
-          ['status' => 400] # status
-        );
-      }
-
-      WorkServiceDB::delete_service($id);
-      foreach (WorkServiceDB::get_all_specific_service_booking($id) as $service_booking) {
-        WorkServiceDB::delete_chat($service_booking->booking_id);
-      };
-      WorkServiceDB::delete_booking($id);
-
-      $response = new WP_REST_Response('Deleted Successfully');
-      $response->set_status(200);
-      return $response;
-    }
-
-    public function get_single_booking_react($request)
-    {
-      if (!isset($request['user_id'])) {
-        return new WP_Error(
-          'incomplete fields', // code
-          'incomplete fields were submitted for getting Service Endpoint', // data
-          ['status' => 400] // status
-        );
-      }
-
-      $id = $request['user_id'];
-      if (!is_numeric($id)) {
-        return new WP_Error(
-          'ID is not a number', # code
-          'This id you sent is not a numerical value', # message
-          ['status' => 400] # status
-        );
-      }
-
-      try {
-        $bookings = array();
-
-        foreach (WorkServiceDB::get_service($id) as $booking) :
-          $service = WorkServiceDB::get_service($booking->service_id)[0];
-
-          $service_icon = wp_get_attachment_url($service->service_icon);
-          $service_name = $service->service_name;
-          $service_category = WorkServiceDB::get_category($service->service_category_id)[0]->category_name;
-          $booking_status = $booking->booking_status;
-          $booking_price = $booking->booking_price;
-          $booking_desc = $booking->booking_desc;
-          $booking_location = $booking->booking_location;
-          $booking_rate = $booking->booking_rate;
-          $booking_date = $booking->date_added;
-
-          $bookings[] = array(
-            'booking_id' => $booking->id,
-            'service_icon' => $service_icon,
-            'service_name' => $service_name,
-            'service_category' => $service_category,
-            'booking_status' => $booking_status,
-            'booking_price' => $booking_price,
-            'booking_desc' => $booking_desc,
-            'booking_location' => $booking_location,
-            'booking_rate' => $booking_rate,
-            'booking_date' => $booking_date,
-          );
-        endforeach;
-
-        $response = new WP_REST_Response($bookings);
-        $response->set_status(200);
-        return $response;
-      } catch (\Throwable $th) {
-        return new WP_Error(
-          'error processing categories', # code
-          "an error occured while trying to get services - $th", # data
-          ['status' => 400] # status
-        );
-      }
-    }
-
-    public function set_booking_react($request)
-    {
-      if (!isset($request['user_id']) && !isset($request['service_id']) && !isset($request['booking_desc']) && !isset($request['booking_name'])) {
-        return new WP_Error(
-          'incomplete fields', // code
-          'incomplete fields were submitted for setting Category Endpoint', // data
-          ['status' => 400] // status
-        );
-      }
-
-      $user_id = $request['user_id'];
-      $service_id = $request['service_id'];
-      $booking_desc = sanitize_text_field($request['booking_desc']);
-      $booking_name = sanitize_text_field($request['booking_name']);
-
-      WorkServiceDB::set_bookings(array(
-        'customer_id' => $user_id,
-        'service_id' => $service_id,
-        'booking_desc' => $booking_desc,
-        'booking_name' => $booking_name,
-      ));
-
-      $response = new WP_REST_Response('Upload Successful');
-      $response->set_status(200);
-      return $response;
-    }
-
-    public function update_bookings_react($request)
-    {
-      if (!isset($request['booking_id']) && !isset($request['booking_status'])) {
-        return new WP_Error(
-          'incomplete fields', // code
-          'incomplete fields were submitted for setting Category Endpoint', // data
-          ['status' => 400] // status
-        );
-      }
-
-      $id = $request['booking_id'];
-      if (!is_numeric($id)) {
-        return new WP_Error(
-          'ID is not a number', # code
-          'This id you sent is not a numerical value', # message
-          ['status' => 400] # status
-        );
-      }
-
-      $booking_status = $request['booking_status'];
-
-      WorkServiceDB::update_bookings(array(
-        'booking_status' => $booking_status,
-      ), $id);
-
-      $response = new WP_REST_Response('Updated Successfully');
-      $response->set_status(200);
-      return $response;
-    }
-
-    public function delete_bookings_react($request)
-    {
-      if (!isset($request['service_id'])) {
-        return new WP_Error(
-          'incomplete fields', // code
-          'incomplete fields were submitted for setting Service Endpoint', // data
-          ['status' => 400] // status
-        );
-      }
-
-      $id = $request['service_id'];
-      if (!is_numeric($id)) {
-        return new WP_Error(
-          'ID is not a number', # code
-          'This id you sent is not a numerical value', # message
-          ['status' => 400] # status
-        );
-      }
-
-      WorkServiceDB::delete_service($id);
-
-      $response = new WP_REST_Response('Deleted Successfully');
-      $response->set_status(200);
-      return $response;
-    }
-
-    public function get_all_chats_react()
-    {
-      if (!isset($request['user_id'])) {
-        return new WP_Error(
-          'incomplete fields', // code
-          'incomplete fields were submitted for getting Service Endpoint', // data
-          ['status' => 400] // status
-        );
-      }
-
-      $id = $request['user_id'];
-      if (!is_numeric($id)) {
-        return new WP_Error(
-          'ID is not a number', # code
-          'This id you sent is not a numerical value', # message
-          ['status' => 400] # status
-        );
-      }
-
-      $role = 'admin';
-
-      //Get a list of users that belongs to the specified role
-      $users = get_users(array('role' => array($role)));
-
-
-      try {
-        // $services = array();
-
-        // foreach (WorkServiceDB::get_all_services() as $service) :
-        //  $services[] = array(
-        //   'service_id' => $service->id,
-        //   'service_name' => $service->service_name,
-        //   'service_icon_id' => $service->service_icon,
-        //   'service_icon' => wp_get_attachment_url($service->service_icon),
-        //   'service_desc' => $service->service_desc,
-        //   'service_category' => WorkServiceDB::get_category($service->service_category_id)[0]->category_name,
-        //   'service_date' => $service->date_added,
-        //  );
-        // endforeach;
-
-        $response = new WP_REST_Response($users);
-        $response->set_status(200);
-        return $response;
-      } catch (\Throwable $th) {
-        return new WP_Error(
-          'error processing categories', # code
-          "an error occured while trying to get categories - $th", # data
-          ['status' => 400] # status
-        );
-      }
-    }
-
-    public function get_all_user_chats_react($request)
-    {
-      if (!isset($request['user_id']) && !isset($request['booking_id'])) {
-        return new WP_Error(
-          'incomplete fields', // code
-          'incomplete fields were submitted for getting Service Endpoint', // data
-          ['status' => 400] // status
-        );
-      }
-
-      $id = $request['user_id'];
-      if (!is_numeric($id)) {
-        return new WP_Error(
-          'ID is not a number', # code
-          'This id you sent is not a numerical value', # message
-          ['status' => 400] # status
-        );
-      }
-
-      try {
-        $response = new WP_REST_Response(WorkServiceDB::get_user_booking_chats($id, $request['booking_id']));
-        $response->set_status(200);
-        return $response;
-      } catch (\Throwable $th) {
-        return new WP_Error(
-          'error processing chats', # code
-          "an error occured while trying to get services - $th", # data
-          ['status' => 400] # status
-        );
-      }
-    }
-
-    public function get_single_chat_react($request)
-    {
-      if (!isset($request['user_id'])) {
-        return new WP_Error(
-          'incomplete fields', // code
-          'incomplete fields were submitted for getting Service Endpoint', // data
-          ['status' => 400] // status
-        );
-      }
-
-      $id = $request['user_id'];
-      if (!is_numeric($id)) {
-        return new WP_Error(
-          'ID is not a number', # code
-          'This id you sent is not a numerical value', # message
-          ['status' => 400] # status
-        );
-      }
-
-      try {
-        $bookings = array();
-
-        foreach (WorkServiceDB::get_service($id) as $booking) :
-          $service = WorkServiceDB::get_service($booking->service_id)[0];
-
-          $service_icon = wp_get_attachment_url($service->service_icon);
-          $service_name = $service->service_name;
-          $service_category = WorkServiceDB::get_category($service->service_category_id)[0]->category_name;
-          $booking_status = $booking->booking_status;
-          $booking_price = $booking->booking_price;
-          $booking_desc = $booking->booking_desc;
-          $booking_location = $booking->booking_location;
-          $booking_rate = $booking->booking_rate;
-          $booking_date = $booking->date_added;
-
-          $bookings[] = array(
-            'booking_id' => $booking->id,
-            'service_icon' => $service_icon,
-            'service_name' => $service_name,
-            'service_category' => $service_category,
-            'booking_status' => $booking_status,
-            'booking_price' => $booking_price,
-            'booking_desc' => $booking_desc,
-            'booking_location' => $booking_location,
-            'booking_rate' => $booking_rate,
-            'booking_date' => $booking_date,
-          );
-        endforeach;
-
-        $response = new WP_REST_Response($bookings);
-        $response->set_status(200);
-        return $response;
-      } catch (\Throwable $th) {
-        return new WP_Error(
-          'error processing categories', # code
-          "an error occured while trying to get services - $th", # data
-          ['status' => 400] # status
-        );
-      }
-    }
-
-    public function set_chats_react($request)
-    {
-      if (!isset($request['user_id']) && !isset($request['chat_sender']) && !isset($request['chat_message']) && !isset($request['chat_type']) && !isset($request['chat_booking_id'])) {
-        return new WP_Error(
-          'incomplete fields', // code
-          'incomplete fields were submitted for setting Category Endpoint', // data
-          ['status' => 400] // status
-        );
-      }
-
-      $user_id = $request['user_id'];
-      $chat_type = $request['chat_type'];
-      $chat_booking_id = $request['chat_booking_id'];
-      $chat_sender = sanitize_text_field($request['chat_sender']);
-      $chat_message = sanitize_text_field($request['chat_message']);
-
-      WorkServiceDB::set_user_chat(array(
-        'user_id' => $user_id,
-        'chat_type' => $chat_type,
-        'booking_id' => $chat_booking_id,
-        'chat_sender' => $chat_sender,
-        'chat_message' => $chat_message,
-      ));
-
-      $response = new WP_REST_Response('Sent Successful');
-      $response->set_status(200);
-      return $response;
-    }
-
-    public function update_chats_react($request)
-    {
-      if (!isset($request['service_id'])) {
-        return new WP_Error(
-          'incomplete fields', // code
-          'incomplete fields were submitted for setting Category Endpoint', // data
-          ['status' => 400] // status
-        );
-      }
-
-      $id = $request['service_id'];
-      if (!is_numeric($id)) {
-        return new WP_Error(
-          'ID is not a number', # code
-          'This id you sent is not a numerical value', # message
-          ['status' => 400] # status
-        );
-      }
-
-      $service_name = sanitize_text_field($request['service_name']);
-      $service_desc = sanitize_text_field($request['service_desc']);
-      $service_category_id = $request['service_category_id'];
-      $service_icon = $request['service_icon'];
-
-      WorkServiceDB::update_service(array(
-        'service_name' => $service_name,
-        'service_desc' => $service_desc,
-        'service_category_id' => $service_category_id,
-        'service_icon' => $service_icon,
-      ), $id);
-
-      $response = new WP_REST_Response('Updated Successfully');
-      $response->set_status(200);
-      return $response;
-    }
-
-    public function delete_chats_react($request)
-    {
-      if (!isset($request['service_id'])) {
-        return new WP_Error(
-          'incomplete fields', // code
-          'incomplete fields were submitted for setting Service Endpoint', // data
-          ['status' => 400] // status
-        );
-      }
-
-      $id = $request['service_id'];
-      if (!is_numeric($id)) {
-        return new WP_Error(
-          'ID is not a number', # code
-          'This id you sent is not a numerical value', # message
-          ['status' => 400] # status
-        );
-      }
-
-      WorkServiceDB::delete_service($id);
-
-      $response = new WP_REST_Response('Deleted Successfully');
-      $response->set_status(200);
-      return $response;
     }
   }
   new WorkServiceDatabaseRestAPI;
