@@ -401,6 +401,7 @@ if (!class_exists('WorkServiceDB')) :
         linkID INT NOT NULL AUTO_INCREMENT,
         linkIOS TEXT NOT NULL,
         linkAndroid TEXT NOT NULL,
+        timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY (linkID)
       ) $charset_collate;";
 
@@ -504,14 +505,16 @@ if (!class_exists('WorkServiceDB')) :
 
       $sql = "CREATE TABLE IF NOT EXISTS $table_name (
         contactID INT NOT NULL AUTO_INCREMENT,
+        contactMail TEXT,
+        contactPhone TEXT,
         contactLocation TEXT,
         contactLocationLink TEXT,
-        contactMail TEXT,
-        contactMailLink TEXT,
         contactFacebook TEXT,
         contactFacebookLink TEXT,
         contactWhatsApp TEXT,
         contactWhatsAppLink TEXT,
+        contactLinkedIn TEXT,
+        contactLinkedInLink TEXT,
         contactInstagram TEXT,
         contactInstagramLink TEXT,
         PRIMARY KEY (contactID)
@@ -888,6 +891,26 @@ if (!class_exists('WorkServiceDB')) :
     public static function get_trust()
     {
       return self::getter('ws_trusted_by');
+    }
+
+    public static function get_download_links()
+    {
+      return self::getter('ws_download_links');
+    }
+
+    public static function get_contact()
+    {
+      return self::getter('ws_contact', '');
+    }
+
+    public static function get_contact_form_submit()
+    {
+      return self::getter('ws_contact_form_submit');
+    }
+
+    public static function get_faqs()
+    {
+      return self::getter('ws_faqs');
     }
 
     # ====== Setters
@@ -1336,13 +1359,5 @@ if (!class_exists('WorkServiceDB')) :
     # ======
 
     # ======
-
-    public static function get_contact()
-    {
-      global $wpdb;
-      $table_name = $wpdb->prefix . 'ws_contact';
-      $results = $wpdb->get_results("SELECT * FROM $table_name");
-      return $results;
-    }
   }
 endif;

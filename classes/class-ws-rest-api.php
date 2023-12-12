@@ -259,6 +259,14 @@ if (!class_exists('WorkServiceDatabaseRestAPI')) :
         'methods'  => 'POST',
         'callback' => [$this, 'set_about'],
       ]);
+      register_rest_route($api_v, 'admin/downloads', [
+        'methods'  => 'GET',
+        'callback' => [$this, 'get_downloads'],
+      ]);
+      register_rest_route($api_v, 'admin/downloads', [
+        'methods'  => 'POST',
+        'callback' => [$this, 'set_downloads'],
+      ]);
       register_rest_route($api_v, 'admin/reason', [
         'methods'  => 'GET',
         'callback' => [$this, 'get_reason'],
@@ -287,13 +295,33 @@ if (!class_exists('WorkServiceDatabaseRestAPI')) :
         'methods'  => 'DELETE',
         'callback' => [$this, 'delete_team'],
       ]);
-      register_rest_route($api_v, 'contact/get', [
+      register_rest_route($api_v, 'admin/contacts', [
         'methods'  => 'GET',
         'callback' => [$this, 'get_contact'],
       ]);
-      register_rest_route($api_v, 'contact/post', [
+      register_rest_route($api_v, 'admin/contact', [
         'methods'  => 'POST',
         'callback' => [$this, 'set_contact'],
+      ]);
+      register_rest_route($api_v, 'admin/contact-form', [
+        'methods'  => 'GET',
+        'callback' => [$this, 'get_contact_form'],
+      ]);
+      register_rest_route($api_v, 'admin/contact-form', [
+        'methods'  => 'POST',
+        'callback' => [$this, 'set_contact_form'],
+      ]);
+      register_rest_route($api_v, 'admin/faqs', [
+        'methods'  => 'GET',
+        'callback' => [$this, 'get_faqs'],
+      ]);
+      register_rest_route($api_v, 'admin/faqs', [
+        'methods'  => 'POST',
+        'callback' => [$this, 'set_faqs'],
+      ]);
+      register_rest_route($api_v, 'admin/faqs', [
+        'methods'  => 'DELETE',
+        'callback' => [$this, 'delete_faqs'],
       ]);
     }
 
@@ -1546,8 +1574,6 @@ if (!class_exists('WorkServiceDatabaseRestAPI')) :
     public function get_about()
     {
       try {
-        // $about = WorkServiceDB::get_about();
-        // $response = new WP_REST_Response($about);
         $response = new WP_REST_Response(WorkServiceDB::get_about());
         $response->set_status(200);
         return $response;
@@ -1597,19 +1623,56 @@ if (!class_exists('WorkServiceDatabaseRestAPI')) :
       }
     }
 
+    public function get_downloads()
+    {
+      try {
+        $response = new WP_REST_Response(WorkServiceDB::get_download_links());
+        $response->set_status(200);
+        return $response;
+      } catch (\Throwable $th) {
+        return new WP_Error(
+          'error processing news', # code
+          "an error occured while trying to get news - $th", # data
+          ['status' => 400] # status
+        );
+      }
+    }
+
+    public function set_downloads($request)
+    {
+      if (!isset($request['ios']) && !isset($request['android'])) {
+        return new WP_Error(
+          'incomplete fields', // code
+          'incomplete fields were submitted for setting links Endpoint', // data
+          ['status' => 400] // status
+        );
+      }
+
+      try {
+        $ios = $request['ios'];
+        $android = $request['android'];
+
+        WorkServiceDB::set_download_links(array(
+          'linkIOS' => $ios,
+          'linkAndroid' => $android,
+        ));
+
+        $response = new WP_REST_Response('Upload Successful');
+        $response->set_status(200);
+        return $response;
+      } catch (\Throwable $th) {
+        return new WP_Error(
+          'error processing Links', # code
+          "an error occured while trying to set links - $th", # data
+          ['status' => 400] # status
+        );
+      }
+    }
+
     public function get_reason()
     {
       try {
         $benefit_info = WorkServiceDB::get_reason();
-
-        // foreach (WorkServiceDB::get_reason() as $benefit) :
-        //   $benefit_info[] = array(
-        //     'benefit_id' => $benefit->benefit_id,
-        //     'benefit_heading' => $benefit->benefit_heading,
-        //     'benefit_paragraph' => $benefit->benefit_paragraph,
-        //   );
-        // endforeach;
-
         $response = new WP_REST_Response($benefit_info);
         $response->set_status(200);
         return $response;
@@ -1783,18 +1846,7 @@ if (!class_exists('WorkServiceDatabaseRestAPI')) :
     public function get_contact()
     {
       try {
-        $contact = WorkServiceDB::get_contact()[count(WorkServiceDB::get_contact()) - 1];
-
-        $contact_info = array(
-          'contact_phone' => $contact->contact_phone,
-          'contact_email' => $contact->contact_email,
-          'contact_address' => $contact->contact_address,
-          'contact_facebook' => $contact->contact_facebook,
-          'contact_whatsapp' => $contact->contact_whatsapp,
-          'contact_instagram' => $contact->contact_instagram,
-        );
-
-        $response = new WP_REST_Response($contact_info);
+        $response = new WP_REST_Response(WorkServiceDB::get_contact());
         $response->set_status(200);
         return $response;
       } catch (\Throwable $th) {
@@ -1808,29 +1860,33 @@ if (!class_exists('WorkServiceDatabaseRestAPI')) :
 
     public function set_contact($request)
     {
-      if (!isset($request['contact_phone']) && !isset($request['contact_email']) && !isset($request['contact_address']) && !isset($request['contact_facebook']) && !isset($request['contact_whatsapp']) && !isset($request['contact_instagram'])) {
-        return new WP_Error(
-          'incomplete fields', // code
-          'incomplete fields were submitted for setting Category Endpoint', // data
-          ['status' => 400] // status
-        );
-      }
-
       try {
-        $contact_phone = $request['contact_phone'];
-        $contact_email = $request['contact_email'];
-        $contact_address = $request['contact_address'];
-        $contact_facebook = $request['contact_facebook'];
-        $contact_whatsapp = $request['contact_whatsapp'];
-        $contact_instagram = $request['contact_instagram'];
+        $location = $request['location'];
+        $locationLink = $request['locationLink'];
+        $email = $request['email'];
+        $facebook = $request['facebook'];
+        $facebookLink = $request['facebookLink'];
+        $whatsApp = $request['whatsApp'];
+        $whatsAppLink = $request['whatsAppLink'];
+        $phoneNumber = $request['phoneNumber'];
+        $linkedIn = $request['linkedIn'];
+        $linkedInLink = $request['linkedInLink'];
+        $instagram = $request['instagram'];
+        $instagramLink = $request['instagramLink'];
 
         WorkServiceDB::set_contact(array(
-          'contact_phone' => $contact_phone,
-          'contact_email' => $contact_email,
-          'contact_address' => $contact_address,
-          'contact_facebook' => $contact_facebook,
-          'contact_whatsapp' => $contact_whatsapp,
-          'contact_instagram' => $contact_instagram,
+          'contactLocation' => $location,
+          'contactLocationLink' => $locationLink,
+          'contactMail' => $email,
+          'contactFacebook' => $facebook,
+          'contactFacebookLink' => $facebookLink,
+          'contactWhatsApp' => $whatsApp,
+          'contactWhatsAppLink' => $whatsAppLink,
+          'contactPhone' => $phoneNumber,
+          'contactLinkedIn' => $linkedIn,
+          'contactLinkedInLink' => $linkedInLink,
+          'contactInstagram' => $instagram,
+          'contactInstagramLink' => $instagramLink,
         ));
 
         $response = new WP_REST_Response('Upload Successful');
@@ -1843,6 +1899,121 @@ if (!class_exists('WorkServiceDatabaseRestAPI')) :
           ['status' => 400] # status
         );
       }
+    }
+
+    public function get_contact_form()
+    {
+      try {
+        $response = new WP_REST_Response(WorkServiceDB::get_contact_form_submit());
+        $response->set_status(200);
+        return $response;
+      } catch (\Throwable $th) {
+        return new WP_Error(
+          'error processing news', # code
+          "an error occured while trying to get news - $th", # data
+          ['status' => 400] # status
+        );
+      }
+    }
+
+    public function set_contact_form($request)
+    {
+      try {
+        $name = $request['name'];
+        $email = $request['email'];
+        $phone = $request['phone'];
+        $subject = $request['subject'];
+        $msg = $request['msg'];
+
+        WorkServiceDB::set_contact_form_submit(array(
+          'contactFormSubmitName' => $name,
+          'contactFormSubmitEmail' => $email,
+          'contactFormSubmitPhone' => $phone,
+          'contactFormSubmitSubject' => $subject,
+          'contactFormSubmitMessage' => $msg,
+        ));
+
+        $response = new WP_REST_Response('Upload Successful');
+        $response->set_status(200);
+        return $response;
+      } catch (\Throwable $th) {
+        return new WP_Error(
+          'error processing news', # code
+          "an error occured while trying to get news - $th", # data
+          ['status' => 400] # status
+        );
+      }
+    }
+
+    public function get_faqs()
+    {
+      try {
+        $response = new WP_REST_Response(WorkServiceDB::get_faqs());
+        $response->set_status(200);
+        return $response;
+      } catch (\Throwable $th) {
+        return new WP_Error(
+          'error processing news', # code
+          "an error occured while trying to get news - $th", # data
+          ['status' => 400] # status
+        );
+      }
+    }
+
+    public function set_faqs($request)
+    {
+      if (!isset($request['faqQuestion']) && !isset($request['faqAnswer'])) {
+        return new WP_Error(
+          'incomplete fields', // code
+          'incomplete fields were submitted for setting Category Endpoint', // data
+          ['status' => 400] // status
+        );
+      }
+
+      try {
+        $faqQuestion = $request['faqQuestion'];
+        $faqAnswer = $request['faqAnswer'];
+
+        WorkServiceDB::set_faqs(array(
+          'faqQuestion' => $faqQuestion,
+          'faqAnswer' => $faqAnswer,
+        ));
+
+        $response = new WP_REST_Response('Upload Successful');
+        $response->set_status(200);
+        return $response;
+      } catch (\Throwable $th) {
+        return new WP_Error(
+          'error processing news', # code
+          "an error occured while trying to get news - $th", # data
+          ['status' => 400] # status
+        );
+      }
+    }
+
+    public function delete_faqs($request)
+    {
+      if (!isset($request['id'])) {
+        return new WP_Error(
+          'incomplete fields', // code
+          'incomplete fields were submitted for setting Category Endpoint', // data
+          ['status' => 400] // status
+        );
+      }
+
+      $id = $request['id'];
+      if (!is_numeric($id)) {
+        return new WP_Error(
+          'ID is not a number', # code
+          'This id you sent is not a numerical value', # message
+          ['status' => 400] # status
+        );
+      }
+
+      WorkServiceDB::delete_faqs($id);
+
+      $response = new WP_REST_Response('Deleted Successfully');
+      $response->set_status(200);
     }
     # ======
 
