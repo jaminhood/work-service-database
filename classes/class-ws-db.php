@@ -443,7 +443,7 @@ if (!class_exists('WorkServiceDB')) :
         faqSubmitEmail TEXT NOT NULL,
         faqSubmitQuestion TEXT NOT NULL,
         timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        PRIMARY KEY (faqID)
+        PRIMARY KEY (faqSubmitID)
       ) $charset_collate;";
 
       dbDelta($sql);
@@ -466,7 +466,7 @@ if (!class_exists('WorkServiceDB')) :
         contactFormSubmitSubject TEXT NOT NULL,
         contactFormSubmitMessage TEXT NOT NULL,
         timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        PRIMARY KEY (faqID)
+        PRIMARY KEY (contactFormSubmitID)
       ) $charset_collate;";
 
       dbDelta($sql);
@@ -911,6 +911,11 @@ if (!class_exists('WorkServiceDB')) :
     public static function get_faqs()
     {
       return self::getter('ws_faqs');
+    }
+
+    public static function get_faqs_form()
+    {
+      return self::getter('ws_faqs_submit');
     }
 
     # ====== Setters

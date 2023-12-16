@@ -49,6 +49,14 @@ if (!class_exists('WorkServiceDatabaseRestAPI')) :
         'methods'  => 'POST',
         'callback' => [$this, 'forgot_password']
       ]);
+      register_rest_route('ws-auth/v1', 'reset-pin', [
+        'methods'  => 'POST',
+        'callback' => [$this, 'reset_pin']
+      ]);
+      register_rest_route('ws-auth/v1', 'reset-password', [
+        'methods'  => 'POST',
+        'callback' => [$this, 'reset_password']
+      ]);
 
       # ====== App Endpoints ======
       register_rest_route($api_v, 'categories', [
@@ -134,6 +142,11 @@ if (!class_exists('WorkServiceDatabaseRestAPI')) :
       register_rest_route($api_v, 'profile', [
         'methods'  => 'POST',
         'callback' => [$this, 'update_profile_picture'],
+        'permission_callback' => [$this, 'permit_user']
+      ]);
+      register_rest_route($api_v, 'profile-details', [
+        'methods'  => 'POST',
+        'callback' => [$this, 'update_profile'],
         'permission_callback' => [$this, 'permit_user']
       ]);
       register_rest_route($api_v, 'news', [
@@ -323,6 +336,14 @@ if (!class_exists('WorkServiceDatabaseRestAPI')) :
         'methods'  => 'DELETE',
         'callback' => [$this, 'delete_faqs'],
       ]);
+      register_rest_route($api_v, 'admin/faqs-form', [
+        'methods'  => 'GET',
+        'callback' => [$this, 'get_faqs_form'],
+      ]);
+      register_rest_route($api_v, 'admin/faqs-form', [
+        'methods'  => 'POST',
+        'callback' => [$this, 'set_faqs_form'],
+      ]);
     }
 
     public function permit_user()
@@ -482,6 +503,58 @@ if (!class_exists('WorkServiceDatabaseRestAPI')) :
         return new WP_Error(
           'error processing forgot password', # code
           "an error occured while trying to register a user", # data
+          array('status' => 400) # status
+        );
+      }
+    }
+
+    public function reset_pin($request)
+    {
+      if (!isset($request['reset_pin']) && !isset($request['user_id'])) {
+        return new WP_Error(
+          'incomplete fields', // code
+          'incomplete fields were submitted for reset pin', // data
+          array('status' => 400) // status
+        );
+      }
+
+      try {
+        # Setting the query arguments to get the list of users
+        $pin_status = WorkServiceSettings::check_pin($request['user_id'], $request['reset_pin']);
+
+        $response = new WP_REST_Response($pin_status);
+        $response->set_status(200);
+        return $response;
+      } catch (\Throwable $th) {
+        return new WP_Error(
+          'error processing reset pin', # code
+          "an error occured while trying to reset a pin", # data
+          array('status' => 400) # status
+        );
+      }
+    }
+
+    public function reset_password($request)
+    {
+      if (!isset($request['user_id']) && !isset($request['password'])) {
+        return new WP_Error(
+          'incomplete fields', // code
+          'incomplete fields were submitted for reset password', // data
+          array('status' => 400) // status
+        );
+      }
+
+      try {
+        $userdata = array('ID' => $_POST['user_id'], 'user_pass' => $_POST['password']);
+        $updated_user_id = wp_update_user($userdata);
+
+        $response = new WP_REST_Response($updated_user_id);
+        $response->set_status(200);
+        return $response;
+      } catch (\Throwable $th) {
+        return new WP_Error(
+          'error processing reset passord', # code
+          "an error occured while trying to reset a password", # data
           array('status' => 400) # status
         );
       }
@@ -692,6 +765,14 @@ if (!class_exists('WorkServiceDatabaseRestAPI')) :
 
         foreach ($bookings as $booking) :
           $booking->icon = wp_get_attachment_url($booking->serviceIcon);
+
+          if ($booking->reviewText == null) {
+            $booking->reviewText = "";
+          }
+
+          if ($booking->ratingValue == null) {
+            $booking->ratingValue = "";
+          }
           unset($booking->serviceIcon);
           unset($booking->serviceID);
           unset($booking->subCategoryID);
@@ -762,6 +843,10 @@ if (!class_exists('WorkServiceDatabaseRestAPI')) :
 
         foreach ($addresses as $address) :
           $address->username = $address->user_login;
+
+          if ($address->city == null) {
+            $address->city = '';
+          }
         endforeach;
 
         $addresses = $this->unsets($addresses);
@@ -787,6 +872,22 @@ if (!class_exists('WorkServiceDatabaseRestAPI')) :
 
         foreach ($addresses as $address) :
           $address->username = $address->user_login;
+
+          if ($address->city == null) {
+            $address->city = '';
+          }
+
+          if ($address->country == null) {
+            $address->country = '';
+          }
+
+          if ($address->state == null) {
+            $address->state = '';
+          }
+
+          if ($address->streetAddress == null) {
+            $address->streetAddress = '';
+          }
         endforeach;
 
         $addresses = $this->unsets($addresses);
@@ -1004,23 +1105,55 @@ if (!class_exists('WorkServiceDatabaseRestAPI')) :
       $user_id = get_current_user_id();
 
       try {
-        $profile = WorkServiceDB::get_user_profile($user_id);
+        $profile = WorkServiceDB::get_user_profile($user_id)[0];
 
-        foreach ($profile as $data) :
-          $data->username = $data->user_login;
-          $data->image = wp_get_attachment_url($data->profileImg);
-        endforeach;
+        $profile->username = $profile->user_login;
+        $profile->image = "";
+        if ($profile->profileImg != '0') {
+          $profile->image = wp_get_attachment_url($profile->profileImg);
+        }
 
-        $profile = $this->unsets($profile);
+        $profile->phone = get_user_meta($profile->userID, 'phone_number')[count(get_user_meta($profile->userID, 'phone_number')) - 1];
+        unset($profile->profileImg);
+        unset($profile->user_pass);
+        unset($profile->user_url);
 
-        $response = new WP_REST_Response($profile[0]);
+        $response = new WP_REST_Response($profile);
         $response->set_status(200);
         return $response;
       } catch (\Throwable $th) {
         return new WP_Error(
-          'error processing categories', # code
-          "an error occured while trying to get services - $th", # data
+          'error processing profile', # code
+          "an error occured while trying to get profile - $th", # data
           ['status' => 400] # status
+        );
+      }
+    }
+
+    public function update_profile($request)
+    {
+      if (!isset($request['phone'])) {
+        return new WP_Error(
+          'incomplete fields', // code
+          'incomplete fields were submitted for setting Profile Endpoint', // data
+          array('status' => 400) // status
+        );
+      }
+
+      $user_id = get_current_user_id();
+
+      try {
+        update_user_meta($user_id, 'phone_number', $request['phone']);
+
+        $response = new WP_REST_Response('Upload Successful');
+        $response->set_status(200);
+        return $response;
+      } catch (\Throwable $th) {
+
+        return new WP_Error(
+          'error processing profile', // code
+          "an error occured while trying to process the profile update - $th", // data
+          ['status' => 400] // status
         );
       }
     }
@@ -2014,6 +2147,46 @@ if (!class_exists('WorkServiceDatabaseRestAPI')) :
 
       $response = new WP_REST_Response('Deleted Successfully');
       $response->set_status(200);
+    }
+
+    public function get_faqs_form()
+    {
+      try {
+        $response = new WP_REST_Response(WorkServiceDB::get_faqs_form());
+        $response->set_status(200);
+        return $response;
+      } catch (\Throwable $th) {
+        return new WP_Error(
+          'error processing news', # code
+          "an error occured while trying to get news - $th", # data
+          ['status' => 400] # status
+        );
+      }
+    }
+
+    public function set_faqs_form($request)
+    {
+      try {
+        $name = $request['name'];
+        $email = $request['email'];
+        $question = $request['question'];
+
+        WorkServiceDB::set_faqs_submit(array(
+          'faqSubmitName' => $name,
+          'faqSubmitEmail' => $email,
+          'faqSubmitQuestion' => $question,
+        ));
+
+        $response = new WP_REST_Response('Upload Successful');
+        $response->set_status(200);
+        return $response;
+      } catch (\Throwable $th) {
+        return new WP_Error(
+          'error processing news', # code
+          "an error occured while trying to get news - $th", # data
+          ['status' => 400] # status
+        );
+      }
     }
     # ======
 

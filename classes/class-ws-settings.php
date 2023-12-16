@@ -84,12 +84,12 @@ if (!class_exists('WorkServiceSettings')) :
 
       try {
         # User's Mail
-        $message_body = "<html><body><img src='https://myluxtrade.com/wp-content/plugins/lux-support%20-%20Copy/assets/imgs/logo-edited.png' alt='logo' style='max-width: 70px;margin-left: 1rem;'><h1 style='color: green;'>Greetings $name!</h1><p style='font-size: 16px;'>$user_msg<br /><br />Cheers!!!<br />Work Service - Admin</p></body></html>";
+        $message_body = "<html><body><img src='https://myworkservice.com/wp-content/themes/work-service-theme-design/build/images/word-logo.be7e1ca2.png' alt='logo' style='max-width: 70px;margin-left: 1rem;'><h1 style='color: green;'>Greetings $name!</h1><p style='font-size: 16px;'>$user_msg<br /><br />Cheers!!!<br />Work Service - Admin</p></body></html>";
 
         wp_mail($email, $title, $message_body, $mail_headers);
 
         # Admin's Mail
-        $message_body = "<html><body><img src='https://myluxtrade.com/wp-content/plugins/lux-support%20-%20Copy/assets/imgs/logo-edited.png' alt='logo' style='max-width: 70px;margin-left: 1rem;'><h1 style='color: green;'>Greetings!</h1><p style='font-size: 16px;'>$admin_msg<br /><br />Cheers!!!<br /><br />Work Service - Admin</p></body></html>";
+        $message_body = "<html><body><img src='https://myworkservice.com/wp-content/themes/work-service-theme-design/build/images/word-logo.be7e1ca2.png' alt='logo' style='max-width: 70px;margin-left: 1rem;'><h1 style='color: green;'>Greetings!</h1><p style='font-size: 16px;'>$admin_msg<br /><br />Cheers!!!<br /><br />Work Service - Admin</p></body></html>";
 
         wp_mail(get_option('business_email'), $title, $message_body, $mail_headers);
       } catch (\Throwable $th) {
@@ -104,17 +104,17 @@ if (!class_exists('WorkServiceSettings')) :
       }
     }
 
-    private static function generateRandomString($length = 30)
+    private static function generateRandomNumbers($length = 6)
     {
-      $characters = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+      $characters = '0123456789';
       $charactersLength = strlen($characters);
-      $randomString = '';
+      $randomNumber = '';
 
       for ($i = 0; $i < $length; $i++) {
-        $randomString .= $characters[rand(0, $charactersLength - 1)];
+        $randomNumber .= $characters[rand(0, $charactersLength - 1)];
       }
 
-      return $randomString;
+      return $randomNumber;
     }
 
     private static function twoway_encrypt($input_str, $secret_key, $secret_iv, $action = 'e')
@@ -136,35 +136,35 @@ if (!class_exists('WorkServiceSettings')) :
 
     public static function password_reset_eMail($user_id, $user_eMail)
     {
-
-      $password_reset_token = self::generateRandomString();
-      $password_reset_key = self::generateRandomString();
-      $password_reset_iv = self::generateRandomString();
-      $password_reset_string = $password_reset_token . "," . $password_reset_key . "," . $password_reset_iv;
-
-      $encrypted_string = self::twoway_encrypt($password_reset_token,   $password_reset_key,  $password_reset_iv,  'e');
-
-      $encrypted_string = substr($encrypted_string, 0, strlen($encrypted_string) - 1);
+      $password_reset_pin = self::generateRandomNumbers();
 
       // Send Mail
-      $mail_subject = "Work Service Alert!!! You requested for Password Reset";
       $customer = get_userdata($user_id);
       $name = $customer->display_name;
-      $username = $customer->user_login;
-      $password_reset_url = site_url("/ws-auth/reset-password/?customer=$username&token=$encrypted_string");
 
-      $email_body = "<p>Greetings $name</p><p>You are recieving this eMail because you requested for a password reset. <a href='$password_reset_url'>Follow this link</a> to reset your password</p><p>If you can't click on the link above, copy this link to your web browser - <code>$password_reset_url</code></p><p>If you haven't requested for any password reset, kindly ignore this eMail</p><p>Thank You</p>";
+      $user_msg = "You are recieving this eMail because you requested for a password reset. <strong>$password_reset_pin</strong>, Enter this pin to reset your password. If you haven't requested for any password reset, kindly ignore this eMail";
+      $admin_msg = "You are recieving this eMail because $name requested for a password reset.";
 
-      function set_html_content_type()
-      {
-        return 'text/html';
+      $email_content = [
+        'email'     => $user_eMail,
+        'title'     => "Password Reset",
+        'name'      => $name,
+        'user_msg'  => $user_msg,
+        'admin_msg' => $admin_msg,
+      ];
+
+      WorkServiceSettings::send_emails($email_content);
+      add_user_meta($user_id,  "password_reset_cridentials",  $password_reset_pin);
+    }
+
+
+    public static function check_pin($user_id, $token)
+    {
+      $pin_string = get_user_meta($user_id, "password_reset_cridentials");
+      if ($token == $pin_string) {
+        return true;
       }
-
-      add_filter('wp_mail_content_type', 'set_html_content_type');
-      wp_mail($user_eMail, $mail_subject, $email_body);
-
-      remove_filter('wp_mail_content_type', 'set_html_content_type');
-      add_user_meta($user_id,  "password_reset_cridentials",  $password_reset_string);
+      return false;
     }
   }
 endif;
