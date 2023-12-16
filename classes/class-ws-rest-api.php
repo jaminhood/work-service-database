@@ -38,12 +38,14 @@ if (!class_exists('WorkServiceDatabaseRestAPI')) :
         'callback' => [$this, 'logout']
       ]);
       register_rest_route('ws-auth/v1', 'revalidate', [
-        'methods'  => 'POST',
-        'callback' => [$this, 'revalidate']
+        'methods'  => 'GET',
+        'callback' => [$this, 'revalidate'],
+        'permission_callback' => [$this, 'permit_user']
       ]);
       register_rest_route('ws-auth/v1', 'delete-account', [
         'methods'  => 'DELETE',
-        'callback' => [$this, 'delete_account']
+        'callback' => [$this, 'delete_account'],
+        'permission_callback' => [$this, 'permit_user']
       ]);
       register_rest_route('ws-auth/v1', 'forgot-password', [
         'methods'  => 'POST',
@@ -454,7 +456,7 @@ if (!class_exists('WorkServiceDatabaseRestAPI')) :
         ]);
 
         $userParam = array("userID" => $userID);
-        $userPassParam = array("userID" => $userID, 'userPass' => wp_hash_password($password));
+        $userPassParam = array("userID" => $userID, 'userPass' => $password);
 
         WorkServiceDB::set_user_address($userParam);
         WorkServiceDB::set_user_profile($userParam);
@@ -545,7 +547,7 @@ if (!class_exists('WorkServiceDatabaseRestAPI')) :
       }
 
       try {
-        $userdata = array('ID' => $_POST['user_id'], 'user_pass' => $_POST['password']);
+        $userdata = array('ID' => $request['user_id'], 'user_pass' => $request['password']);
         $updated_user_id = wp_update_user($userdata);
 
         $response = new WP_REST_Response($updated_user_id);
@@ -571,26 +573,14 @@ if (!class_exists('WorkServiceDatabaseRestAPI')) :
     public function revalidate()
     {
       $user = WorkServiceDB::get_user_password();
-
-      // $user['userPass'] = wp_;
-      wp_logout();
       $response = new WP_REST_Response($user);
       $response->set_status(200);
       return $response;
     }
 
-    public function delete_account($request)
+    public function delete_account()
     {
-      if (!isset($request['id'])) {
-        return new WP_Error(
-          'incomplete fields', // code
-          'incomplete fields were submitted for account deletion', // data
-          ['status' => 400] // status
-        );
-      }
-
-      WorkServiceDB::delete_account($request['id']);
-
+      WorkServiceDB::delete_account(get_current_user_id());
       $response = new WP_REST_Response('User Deleted Successfully');
       $response->set_status(200);
       return $response;
