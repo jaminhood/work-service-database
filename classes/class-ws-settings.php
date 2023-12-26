@@ -166,5 +166,38 @@ if (!class_exists('WorkServiceSettings')) :
       }
       return false;
     }
+
+    public static function notifiy($id, array $data)
+    {
+      $token = WorkServiceDB::get_device_token($id);
+      $device_token = '';
+      if (!empty($token)) {
+        $device_token = $token[0]->deviceToken;
+      }
+      $api_key = 'AAAAe1-fkck:APA91bF02mswd2pXiG1f75n-Ccf5sH4xb25vnFdpFTijLvW79BYXR3LIacxHfJCnuWrTS9SL1aupvW_3iez4gv7x59I7_tmnOlGYjnPJjYw1agqFkt6rylOYjLAXr1SwHUzSQrv85TxK';
+      $url = 'https://fcm.googleapis.com/fcm/send';
+      $fields = json_encode([
+        'to' => $device_token,
+        'notification' => $data
+      ]);
+
+      $ch = curl_init();
+
+      curl_setopt($ch, CURLOPT_URL, $url);
+      curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+      curl_setopt($ch, CURLOPT_POST, 1);
+      curl_setopt($ch, CURLOPT_POSTFIELDS, $fields);
+
+      $headers = array();
+      $headers[] = 'Authorization: key = ' . $api_key;
+      $headers[] = 'Content-Type: application/json';
+      curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+
+      $result = curl_exec($ch);
+      if (curl_errno($ch)) {
+        echo 'Error:' . curl_error($ch);
+      }
+      curl_close($ch);
+    }
   }
 endif;

@@ -217,6 +217,7 @@ if (!class_exists('WorkServiceDB')) :
         sender TEXT,
         chatID INT,
         expertID INT,
+        voice INT,
         paymentLink TEXT,
         isRate BOOLEAN NOT NULL DEFAULT FALSE,
         messageText TEXT,
@@ -543,6 +544,25 @@ if (!class_exists('WorkServiceDB')) :
       add_option("jal_db_version", $jal_db_version);
     }
 
+    private static function create_device_token_table()
+    {
+      global $wpdb;
+      global $jal_db_version;
+
+      $table_name = $wpdb->prefix . 'ws_device_token';
+      $charset_collate = $wpdb->get_charset_collate();
+
+      $sql = "CREATE TABLE IF NOT EXISTS $table_name (
+        id INT NOT NULL AUTO_INCREMENT,
+        customerID INT NOT NULL,
+        deviceToken TINYTEXT NOT NULL,
+        PRIMARY KEY (id)
+      ) $charset_collate;";
+
+      dbDelta($sql);
+      add_option("jal_db_version", $jal_db_version);
+    }
+
     public static function create_tables()
     {
       self::create_categories_table();
@@ -570,6 +590,7 @@ if (!class_exists('WorkServiceDB')) :
       // self::create_expert_orders_table();
       self::create_contact_table();
       self::create_user_password_table();
+      self::create_device_token_table();
     }
 
     public static function delete_tables()
@@ -615,7 +636,6 @@ if (!class_exists('WorkServiceDB')) :
     {
       $user_id = wp_insert_user($user_data);
       add_user_meta($user_id, 'phone_number', $phone);
-      add_user_meta($user_id, 'account_balance', 0);
       return $user_id;
     }
 
@@ -811,11 +831,19 @@ if (!class_exists('WorkServiceDB')) :
       return $experts;
     }
 
-    private static function get_single_expert(int $id)
+    public static function get_single_expert($id)
     {
-      $user = array();
+      $user = get_user_by('ID', $id);
+      $profession = get_user_meta($user->ID, 'profession');
+      $phone = get_user_meta($user->ID, 'phone_number');
 
-      return $user;
+      $userDetail = array(
+        'user' => $user,
+        'profession' => $profession[count($profession) - 1],
+        'phone' => $phone[count($phone) - 1]
+      );
+
+      return $userDetail;
     }
 
     private static function get_user($id)
@@ -882,10 +910,9 @@ if (!class_exists('WorkServiceDB')) :
       return self::getter('ws_messages', "WHERE chatID=$chatID");
     }
 
-    public static function get_user_password()
+    public static function get_user_password($userId)
     {
-      $userID = get_current_user_id();
-      return self::getter('ws_user_password', "WHERE userID=$userID")[0];
+      return self::getter('ws_user_password', "WHERE userID=$$userId")[0];
     }
 
     public static function get_trust()
@@ -916,6 +943,11 @@ if (!class_exists('WorkServiceDB')) :
     public static function get_faqs_form()
     {
       return self::getter('ws_faqs_submit');
+    }
+
+    public static function get_device_token($id)
+    {
+      return self::getter('ws_device_token', "WHERE customerID=$id");
     }
 
     # ====== Setters
@@ -1050,6 +1082,11 @@ if (!class_exists('WorkServiceDB')) :
       self::setter('ws_user_password', $data);
     }
 
+    public static function set_device_token(array $data)
+    {
+      self::setter('ws_device_token', $data);
+    }
+
     # ====== Updaters
     private static function updater($table, $data, $key, $val)
     {
@@ -1172,6 +1209,11 @@ if (!class_exists('WorkServiceDB')) :
     public static function update_user_password($data,  $id)
     {
       self::updater('ws_user_password', $data, 'userID', $id);
+    }
+
+    public static function update_device_token($data,  $id)
+    {
+      self::updater('ws_device_token', $data, 'customerID', $id);
     }
 
     # ====== Deleters
@@ -1305,6 +1347,22 @@ if (!class_exists('WorkServiceDB')) :
     public static function delete_user_password($id)
     {
       self::deleter('ws_user_password', 'userID', $id);
+    }
+
+    // 
+    public static function insert_device_token(string $token)
+    {
+      $id = get_current_user_id();
+      $token_result = self::get_device_token($id);
+
+      if (empty($token_result)) {
+        $data = array('customerID' => $id, 'deviceToken' => $token);
+        self::set_device_token($data);
+      } else {
+        $data = array('deviceToken' => $token);
+        self::update_device_token($data, $id);
+      }
+      return true;
     }
 
     # ====== Sub-Categories ======

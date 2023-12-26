@@ -59,6 +59,11 @@ if (!class_exists('WorkServiceDatabaseRestAPI')) :
         'methods'  => 'POST',
         'callback' => [$this, 'reset_password']
       ]);
+      register_rest_route('ws-auth/v1', 'token', [
+        'methods'  => 'POST',
+        'callback' => [$this, 'set_device_token'],
+        'permission_callback' => [$this, 'permit_user']
+      ]);
 
       # ====== App Endpoints ======
       register_rest_route($api_v, 'categories', [
@@ -455,6 +460,10 @@ if (!class_exists('WorkServiceDatabaseRestAPI')) :
           'role'       => $role
         ]);
 
+        if ($role === 'expert') {
+          add_user_meta($userID, 'profession', 'profession');
+        }
+
         $userParam = array("userID" => $userID);
         $userPassParam = array("userID" => $userID, 'userPass' => $password);
 
@@ -512,7 +521,7 @@ if (!class_exists('WorkServiceDatabaseRestAPI')) :
 
     public function reset_pin($request)
     {
-      if (!isset($request['reset_pin']) && !isset($request['user_id'])) {
+      if (!isset($request['reset_pin']) && !isset($request['email'])) {
         return new WP_Error(
           'incomplete fields', // code
           'incomplete fields were submitted for reset pin', // data
@@ -521,8 +530,12 @@ if (!class_exists('WorkServiceDatabaseRestAPI')) :
       }
 
       try {
-        # Setting the query arguments to get the list of users
-        $pin_status = WorkServiceSettings::check_pin($request['user_id'], $request['reset_pin']);
+        $email = sanitize_email($request['email']);
+
+        $user = get_user_by('email', $email);
+        $userId = $user->ID;
+
+        $pin_status = WorkServiceSettings::check_pin($userId, $request['reset_pin']);
 
         $response = new WP_REST_Response($pin_status);
         $response->set_status(200);
@@ -538,16 +551,21 @@ if (!class_exists('WorkServiceDatabaseRestAPI')) :
 
     public function reset_password($request)
     {
-      if (!isset($request['user_id']) && !isset($request['password'])) {
+      if (!isset($request['email']) && !isset($request['password'])) {
         return new WP_Error(
           'incomplete fields', // code
-          'incomplete fields were submitted for reset password', // data
+          'incomplete fields were submitted to reset a password', // data
           array('status' => 400) // status
         );
       }
 
       try {
-        $userdata = array('ID' => $request['user_id'], 'user_pass' => $request['password']);
+        $email = sanitize_email($request['email']);
+
+        $user = get_user_by('email', $email);
+        $userId = $user->ID;
+
+        $userdata = array('ID' => $userId, 'user_pass' => $request['password']);
         $updated_user_id = wp_update_user($userdata);
 
         $response = new WP_REST_Response($updated_user_id);
@@ -570,12 +588,64 @@ if (!class_exists('WorkServiceDatabaseRestAPI')) :
       return $response;
     }
 
-    public function revalidate()
+    public function set_device_token()
     {
-      $user = WorkServiceDB::get_user_password();
-      $response = new WP_REST_Response($user);
-      $response->set_status(200);
-      return $response;
+      if (isset($request['device-token'])) {
+        try {
+          $token = sanitize_text_field($request['device-token']);
+
+          if (WorkServiceDB::insert_device_token($token)) {
+            $response = new WP_REST_Response('Device Token set successfully');
+            $response->set_status(200);
+          } else {
+            $response = new WP_REST_Response('Device Token not set');
+            $response->set_status(400);
+          }
+          return $response;
+        } catch (\Throwable $th) {
+          return new WP_Error(
+            'error processing order', # code
+            "an error occured while trying to set transaction Device Token - $th", # data
+            ['status' => 400] # status
+          );
+        }
+      } else {
+        return new WP_Error(
+          'no request', # code
+          'no request was submitted for process', # message
+          ['status' => 400] # status
+        );
+      }
+    }
+
+    public function revalidate($request)
+    {
+      if (!isset($request['email'])) {
+        return new WP_Error(
+          'incomplete fields', // code
+          'incomplete fields were submitted for revalidating password', // data
+          array('status' => 400) // status
+        );
+      }
+
+      try {
+        # Setting the query arguments to get the list of users
+        $email = sanitize_email($request['email']);
+
+        $user = get_user_by('email', $email);
+        $userId = $user->ID;
+
+        $user = WorkServiceDB::get_user_password($userId);
+        $response = new WP_REST_Response($user);
+        $response->set_status(200);
+        return $response;
+      } catch (\Throwable $th) {
+        return new WP_Error(
+          'error processing password', # code
+          "an error occured while trying to revalidate a user", # data
+          array('status' => 400) # status
+        );
+      }
     }
 
     public function delete_account()
@@ -1010,31 +1080,84 @@ if (!class_exists('WorkServiceDatabaseRestAPI')) :
 
       $chatID = $request['chat_id'];
       $sender = 'customer';
+      $notificaton = [
+        'title' => '',
+        'body' => ''
+      ];
 
       if (isset($request['sender'])) :
         $sender = sanitize_text_field($request['sender']);
+      endif;
+
+      if ($sender === 'admin') :
+        $notificaton['title'] = 'Unread Message From Admin';
       endif;
 
       $params = array('sender' => $sender, 'chatID' => $chatID);
 
       if ($request['type'] === 'message') {
         $params['messageText'] = sanitize_text_field($request['message_text']);
+        $notificaton['body'] = sanitize_text_field($request['message_text']);
       }
 
       if ($request['type'] === 'expert') {
-        $params['expertID'] = $request['expert_id'];
+        $expertID = WorkServiceDB::get_single_expert($request['expert_id']);
+        $params['expertID'] = $expertID;
+        $notificaton['body'] = $expertID['profession'];
       }
 
       if ($request['type'] === 'payment') {
         $params['paymentLink'] = $request['payment_link'];
+        $notificaton['body'] = $request['payment_link'];
       }
 
       if ($request['type'] === 'rate') {
         $params['isRate'] = TRUE;
+        $notificaton['body'] = 'Please Rate our Services';
       }
 
-      WorkServiceDB::set_messages($params);
+      // if ($request['type'] === 'vn') {
+      //   if (!isset($_FILES['file'])) {
+      //     return new WP_Error(
+      //       'incomplete fields', // code
+      //       'incomplete fields were submitted for sending audio Endpoint', // data
+      //       array('status' => 400) // status
+      //     );
+      //   }
 
+      //   $arr_audio_ext = array('wav');
+
+      //   if (in_array($_FILES['file']['type'], $arr_audio_ext)) {
+      //     $upload = wp_upload_bits($_FILES["file"]["name"], null, file_get_contents($_FILES["file"]["tmp_name"]));
+      //     $type = '';
+
+      //     if (!empty($upload['type'])) {
+      //       $type = $upload['type'];
+      //     } else {
+      //       $mime = wp_check_filetype($upload['file']);
+
+      //       if ($mime) {
+      //         $type = $mime['type'];
+      //       }
+      //     }
+
+      //     $attachment = array('post_title' => basename($upload['file']), 'post_content' => '', 'post_type' => 'attachment', 'post_mime_type' => $type, 'guid' => $upload['url']);
+      //     $audio_file = wp_insert_attachment($attachment, $upload['file']);
+
+      //     wp_update_attachment_metadata($audio_file, wp_generate_attachment_metadata($audio_file, $upload['file']));
+      //   } else {
+      //     return new WP_Error(
+      //       'error processing order', // code
+      //       "error processing image", // data
+      //       ['status' => 400] // status
+      //     );
+      //   }
+
+      //   $params['voice'] = $audio_file;
+      // }
+
+      WorkServiceDB::set_messages($params);
+      WorkServiceSettings::notifiy(get_current_user_id(), $notificaton);
       $response = new WP_REST_Response('Message Sent');
       $response->set_status(200);
       return $response;
@@ -1103,7 +1226,16 @@ if (!class_exists('WorkServiceDatabaseRestAPI')) :
           $profile->image = wp_get_attachment_url($profile->profileImg);
         }
 
-        $profile->phone = get_user_meta($profile->userID, 'phone_number')[count(get_user_meta($profile->userID, 'phone_number')) - 1];
+        $phone = get_user_meta($profile->userID, 'phone_number');
+
+        $profile->phone = $phone[count($phone) - 1];
+        $user = wp_get_current_user();
+        $profile->role = $user->roles[0];
+
+        if ($profile->role === "expert") {
+          $profile->profession = get_user_meta($profile->userID, 'profession');
+        }
+
         unset($profile->profileImg);
         unset($profile->user_pass);
         unset($profile->user_url);
@@ -1134,6 +1266,10 @@ if (!class_exists('WorkServiceDatabaseRestAPI')) :
 
       try {
         update_user_meta($user_id, 'phone_number', $request['phone']);
+
+        if (isset($request['profession'])) {
+          update_user_meta($user_id, 'profession', $request['profession']);
+        }
 
         $response = new WP_REST_Response('Upload Successful');
         $response->set_status(200);
